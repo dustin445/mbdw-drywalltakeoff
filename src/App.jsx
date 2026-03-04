@@ -9,7 +9,7 @@ const MATERIALS = [
   "58TB (5/8\" TILEBACKER)",
   "12CD (1/2\" CEILING BOARD)",
   "14FL (1/4\" FLEXIBLE)",
-  "12SA (1/2\" 54\" STD)",
+  "1254 (1/2\" 54\" STD)",
   "12DU (1/2\" DUROCK)",
   "58DU (5/8\" DUROCK)",
   "12MOLD (1/2\" AQUA BOARD)",
@@ -101,6 +101,11 @@ export default function TakeoffApp() {
     try { return localStorage.getItem("takeoff_currentJobId") || null; } catch { return null; }
   });
   const [currentAreaId, setCurrentAreaId] = useState(null);
+  const [isUnlocked, setIsUnlocked] = useState(() => {
+    try { return localStorage.getItem("takeoff_unlocked") === "true"; } catch { return false; }
+  });
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState(false);
   const [newJobName, setNewJobName] = useState("");
   const [newJobNumber, setNewJobNumber] = useState("");
   const [newJobType, setNewJobType] = useState("single");
@@ -419,7 +424,12 @@ export default function TakeoffApp() {
     return t;
   };
 
-  const sheetWidth = (mat) => mat.includes("54") ? 4.5 : 4;
+  const sheetWidth = (mat) => mat.includes("1254") ? 4.5 : 4;
+  const isDisabledCell = (mat, len) => {
+    if (mat.includes("1254") && (len === "9'" || len === "14'")) return true;
+    if (mat.startsWith("58") && len === "14'") return true;
+    return false;
+  };
   const lenFeet = (len) => parseFloat(len.replace("'", ""));
 
   const areaSqFt = (area, mats) => {
@@ -443,6 +453,55 @@ export default function TakeoffApp() {
   };
 
   // ─── SCREENS ──────────────────────────────────────────────────────────────
+
+  if (!isUnlocked) {
+    return (
+      <div style={{ ...styles.shell, maxWidth: 520, alignItems: "center", justifyContent: "center" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 24px", width: "100%" }}>
+          <img src={MBDW_LOGO} alt="MBDW" style={{ height: 72, marginBottom: 24, objectFit: "contain" }} />
+          <div style={{ fontSize: 20, fontWeight: 800, color: "#f1f5f9", marginBottom: 4 }}>Maclean Bros.</div>
+          <div style={{ fontSize: 13, color: "#475569", marginBottom: 40, letterSpacing: 1 }}>Drywall Takeoff App</div>
+          <div style={{ width: "100%", maxWidth: 320 }}>
+            <div style={{ fontSize: 11, color: "#475569", fontWeight: 700, letterSpacing: 1.5, marginBottom: 8 }}>ENTER PASSWORD</div>
+            <input
+              autoFocus
+              type="password"
+              style={{ ...styles.input, fontSize: 18, letterSpacing: 4, textAlign: "center", borderColor: passwordError ? "#ef4444" : "#1e293b" }}
+              placeholder="••••••••"
+              value={passwordInput}
+              onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(false); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  if (passwordInput === "MBDW2025") {
+                    localStorage.setItem("takeoff_unlocked", "true");
+                    setIsUnlocked(true);
+                  } else {
+                    setPasswordError(true);
+                    setPasswordInput("");
+                  }
+                }
+              }}
+            />
+            {passwordError && (
+              <div style={{ color: "#ef4444", fontSize: 12, textAlign: "center", marginTop: -8, marginBottom: 12 }}>Incorrect password. Try again.</div>
+            )}
+            <button
+              style={styles.btnPrimary}
+              onClick={() => {
+                if (passwordInput === "MBDW2025") {
+                  localStorage.setItem("takeoff_unlocked", "true");
+                  setIsUnlocked(true);
+                } else {
+                  setPasswordError(true);
+                  setPasswordInput("");
+                }
+              }}
+            >Unlock</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (screen === "home") {
     const filteredJobs = jobs.filter(job => {
@@ -779,55 +838,18 @@ export default function TakeoffApp() {
           <span style={{ color: "#60a5fa", fontSize: isLandscape ? 11 : 13 }}>{areaTotal(currentArea)} pcs · {areaSqFt(currentArea, matRows)} ft²</span>
         </div>
 
-        {/* Scrollable grid */}
-        <div style={styles.gridWrapper}>
-          {/* Header row */}
-          <div style={styles.gridHead}>
-            <div style={{ ...styles.matLabelHead, width: matColW, minWidth: matColW, padding: headerPad }}>Material</div>
-            {LENGTHS.map((l) => (
-              <div key={l} style={{ ...styles.lenHead, padding: headerPad }}>{l}</div>
-            ))}
-          </div>
-
-          {/* Data rows */}
-          <div style={styles.gridBody}>
-            {matRows.map((mat, i) => (
-              <div key={mat} style={{ ...styles.gridRow, background: i % 2 === 0 ? "#0f172a" : "#111827" }}>
-                <div style={{ ...styles.matLabel, width: matColW, minWidth: matColW, fontSize: isLandscape ? 10 : 10.5, padding: isLandscape ? "4px 8px" : "6px 8px" }}>{mat}</div>
-                {LENGTHS.map((len) => {
-                  const val = currentArea?.data[mat]?.[len] || 0;
-                  return (
-                    <button
-                      key={len}
-                      style={{ ...styles.cell, height: cellH, fontSize: cellFontSize, background: val > 0 ? "#1e3a5f" : "#1e293b", color: val > 0 ? "#60a5fa" : "#475569" }}
-                      onPointerDown={() => startLongPress(mat, len)}
-                      onPointerUp={() => { cancelLongPress(); handleCellPress(mat, len); }}
-                      onPointerLeave={cancelLongPress}
-                      onContextMenu={(e) => { e.preventDefault(); updateQty(mat, len, -1); }}
-                    >
-                      {val > 0 ? val : "·"}
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ ...styles.hint, fontSize: isLandscape ? 10 : 11, padding: isLandscape ? "4px 0" : "6px 0" }}>
-          Tap = +1 &nbsp;|&nbsp; Long press = −1
-        </div>
-
-        {/* Sheet totals row */}
-        <div style={styles.totalsBar}>
+        {/* Totals pinned at top */}
+        <div style={{ ...styles.totalsBar, borderTop: "none", borderBottom: "2px solid #2563eb44" }}>
           <div style={{ ...styles.totalsLabel, width: matColW, minWidth: matColW }}>SHEETS</div>
           {LENGTHS.map((len) => {
             const total = matRows.reduce((s, mat) => s + (currentArea?.data[mat]?.[len] || 0), 0);
-            return <div key={len} style={{ ...styles.totalCell, fontSize: isLandscape ? 14 : 16 }}>{total}</div>;
+            return <div key={len} style={{ ...styles.totalCell, fontSize: isLandscape ? 14 : 16 }}>{total > 0 ? total : "·"}</div>;
           })}
+          <div style={{ ...styles.totalCell, fontWeight: 900, fontSize: isLandscape ? 14 : 16, minWidth: 48 }}>
+            ={matRows.reduce((s, mat) => s + LENGTHS.reduce((ls, len) => ls + (currentArea?.data[mat]?.[len] || 0), 0), 0)}
+          </div>
         </div>
-        {/* Sq ft totals row */}
-        <div style={{ ...styles.totalsBar, background: "#0d2040", borderTop: "1px solid #2563eb33" }}>
+        <div style={{ ...styles.totalsBar, background: "#0d2040", borderTop: "none", borderBottom: "2px solid #1e293b" }}>
           <div style={{ ...styles.totalsLabel, fontSize: 9, width: matColW, minWidth: matColW }}>FT²</div>
           {LENGTHS.map((len) => (
             <div key={len} style={{ ...styles.totalCell, color: "#34d399", fontSize: isLandscape ? 12 : 13 }}>
@@ -837,6 +859,51 @@ export default function TakeoffApp() {
           <div style={{ ...styles.totalCell, color: "#34d399", fontWeight: 900, fontSize: isLandscape ? 12 : 13, minWidth: 48 }}>
             ={areaSqFt(currentArea, matRows)}
           </div>
+        </div>
+
+        {/* Scrollable grid */}
+        <div style={styles.gridWrapper}>
+          {/* Header row */}
+          <div style={{ ...styles.gridHead, minWidth: matColW + LENGTHS.length * 50 + 48 }}>
+            <div style={{ ...styles.matLabelHead, width: matColW, minWidth: matColW, padding: headerPad }}>Material</div>
+            {LENGTHS.map((l) => (
+              <div key={l} style={{ ...styles.lenHead, padding: headerPad }}>{l}</div>
+            ))}
+            <div style={{ ...styles.lenHead, minWidth: 48, padding: headerPad }}>TOT</div>
+          </div>
+
+          {/* Data rows */}
+          <div style={{ ...styles.gridBody, minWidth: matColW + LENGTHS.length * 50 + 48 }}>
+            {matRows.map((mat, i) => (
+              <div key={mat} style={{ ...styles.gridRow, background: i % 2 === 0 ? "#0f172a" : "#111827" }}>
+                <div style={{ ...styles.matLabel, width: matColW, minWidth: matColW, fontSize: isLandscape ? 10 : 10.5, padding: isLandscape ? "4px 8px" : "6px 8px" }}>{mat}</div>
+                {LENGTHS.map((len) => {
+                  const val = currentArea?.data[mat]?.[len] || 0;
+                  const disabled = isDisabledCell(mat, len);
+                  return (
+                    <button
+                      key={len}
+                      disabled={disabled}
+                      style={{ ...styles.cell, height: cellH, fontSize: cellFontSize, background: disabled ? "#0a0f1e" : val > 0 ? "#1e3a5f" : "#1e293b", color: disabled ? "#1e293b" : val > 0 ? "#60a5fa" : "#475569", cursor: disabled ? "not-allowed" : "pointer" }}
+                      onPointerDown={() => !disabled && startLongPress(mat, len)}
+                      onPointerUp={() => { if (!disabled) { cancelLongPress(); handleCellPress(mat, len); } }}
+                      onPointerLeave={cancelLongPress}
+                      onContextMenu={(e) => { e.preventDefault(); if (!disabled) updateQty(mat, len, -1); }}
+                    >
+                      {disabled ? "—" : val > 0 ? val : "·"}
+                    </button>
+                  );
+                })}
+                <div style={{ ...styles.totalCell, minWidth: 48, height: cellH, fontSize: isLandscape ? 12 : 13, color: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center", background: i % 2 === 0 ? "#0f172a" : "#111827" }}>
+                  {LENGTHS.reduce((s, len) => s + (currentArea?.data[mat]?.[len] || 0), 0) || "·"}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ ...styles.hint, fontSize: isLandscape ? 10 : 11, padding: isLandscape ? "4px 0" : "6px 0" }}>
+          Tap = +1 &nbsp;|&nbsp; Long press = −1
         </div>
       </div>
     );
