@@ -430,6 +430,28 @@ export default function TakeoffApp() {
     if (mat.startsWith("58") && len === "14'") return true;
     return false;
   };
+
+  // Wipe any quantities in disabled cells (cleans up legacy data)
+  const cleanDisabledCells = (jobId, areaId) => {
+    setJobs((prev) => prev.map((j) => {
+      if (j.id !== jobId) return j;
+      return {
+        ...j,
+        areas: j.areas.map((a) => {
+          if (a.id !== areaId) return a;
+          const newData = { ...a.data };
+          Object.keys(newData).forEach((mat) => {
+            LENGTHS.forEach((len) => {
+              if (isDisabledCell(mat, len)) {
+                newData[mat] = { ...newData[mat], [len]: 0 };
+              }
+            });
+          });
+          return { ...a, data: newData };
+        }),
+      };
+    }));
+  };
   const lenFeet = (len) => parseFloat(len.replace("'", ""));
 
   const areaSqFt = (area, mats) => {
@@ -693,7 +715,7 @@ export default function TakeoffApp() {
                   <>
                     <button
                       style={styles.areaCard}
-                      onClick={() => { setCurrentAreaId(area.id); setScreen("area"); }}
+                      onClick={() => { setCurrentAreaId(area.id); cleanDisabledCells(currentJobId, area.id); setScreen("area"); }}
                     >
                       <div>
                         <div style={styles.areaName}>{area.name}</div>
@@ -825,80 +847,74 @@ export default function TakeoffApp() {
 
   if (screen === "area") {
     const matRows = selectedMaterials.length > 0 ? selectedMaterials : MATERIALS.slice(0, 6);
-    const cellH = isLandscape ? 40 : 52;
-    const matColW = isLandscape ? 148 : 120;
-    const cellFontSize = isLandscape ? 15 : 17;
-    const headerPad = isLandscape ? "6px 8px" : "10px 8px";
+    const cellH = isLandscape ? 48 : 64;
+    const matColW = isLandscape ? 130 : 80;
+    const cellW = isLandscape ? 56 : 52;
+    const cellFontSize = isLandscape ? 16 : 18;
+    const headerPad = isLandscape ? "8px 4px" : "10px 2px";
+    const totalWidth = matColW + LENGTHS.length * cellW;
+
+    const formatMat = (mat) => {
+      const bracket = mat.indexOf("(");
+      if (bracket === -1) return [mat, ""];
+      return [mat.slice(0, bracket).trim(), mat.slice(bracket)];
+    };
 
     return (
       <div style={{ ...styles.shell, maxWidth: "100%" }}>
         <div style={{ ...styles.header, padding: isLandscape ? "8px 16px" : "14px 16px" }}>
           <button style={styles.back} onClick={() => setScreen("job")}>‹</button>
           <span style={{ ...styles.headerTitle, fontSize: isLandscape ? 14 : 16 }}>{currentArea?.name}</span>
-          <span style={{ color: "#60a5fa", fontSize: isLandscape ? 11 : 13 }}>{areaTotal(currentArea)} pcs · {areaSqFt(currentArea, matRows)} ft²</span>
-        </div>
-
-        {/* Totals pinned at top */}
-        <div style={{ ...styles.totalsBar, borderTop: "none", borderBottom: "2px solid #2563eb44" }}>
-          <div style={{ ...styles.totalsLabel, width: matColW, minWidth: matColW }}>SHEETS</div>
-          {LENGTHS.map((len) => {
-            const total = matRows.reduce((s, mat) => s + (currentArea?.data[mat]?.[len] || 0), 0);
-            return <div key={len} style={{ ...styles.totalCell, fontSize: isLandscape ? 14 : 16 }}>{total > 0 ? total : "·"}</div>;
-          })}
-          <div style={{ ...styles.totalCell, fontWeight: 900, fontSize: isLandscape ? 14 : 16, minWidth: 48 }}>
-            ={matRows.reduce((s, mat) => s + LENGTHS.reduce((ls, len) => ls + (currentArea?.data[mat]?.[len] || 0), 0), 0)}
+          <div style={{ textAlign: "right" }}>
+            <div style={{ color: "#60a5fa", fontSize: isLandscape ? 11 : 13, fontWeight: 700 }}>{areaTotal(currentArea)} pcs</div>
+            <div style={{ color: "#34d399", fontSize: isLandscape ? 10 : 12 }}>{areaSqFt(currentArea, matRows)} ft²</div>
           </div>
         </div>
-        <div style={{ ...styles.totalsBar, background: "#0d2040", borderTop: "none", borderBottom: "2px solid #1e293b" }}>
-          <div style={{ ...styles.totalsLabel, fontSize: 9, width: matColW, minWidth: matColW }}>FT²</div>
-          {LENGTHS.map((len) => (
-            <div key={len} style={{ ...styles.totalCell, color: "#34d399", fontSize: isLandscape ? 12 : 13 }}>
-              {lenSqFt(currentArea, len, matRows)}
+
+        {/* Single scrollable container */}
+        <div style={{ flex: 1, overflowX: "auto", overflowY: "auto" }}>
+          <div style={{ minWidth: totalWidth }}>
+
+            {/* Header row */}
+            <div style={{ ...styles.gridHead, position: "sticky", top: 0, zIndex: 5 }}>
+              <div style={{ ...styles.matLabelHead, width: matColW, minWidth: matColW, padding: headerPad }}>Mat.</div>
+              {LENGTHS.map((l) => (
+                <div key={l} style={{ ...styles.lenHead, width: cellW, minWidth: cellW, padding: headerPad }}>{l}</div>
+              ))}
             </div>
-          ))}
-          <div style={{ ...styles.totalCell, color: "#34d399", fontWeight: 900, fontSize: isLandscape ? 12 : 13, minWidth: 48 }}>
-            ={areaSqFt(currentArea, matRows)}
-          </div>
-        </div>
 
-        {/* Scrollable grid */}
-        <div style={styles.gridWrapper}>
-          {/* Header row */}
-          <div style={{ ...styles.gridHead, minWidth: matColW + LENGTHS.length * 50 + 48 }}>
-            <div style={{ ...styles.matLabelHead, width: matColW, minWidth: matColW, padding: headerPad }}>Material</div>
-            {LENGTHS.map((l) => (
-              <div key={l} style={{ ...styles.lenHead, padding: headerPad }}>{l}</div>
-            ))}
-            <div style={{ ...styles.lenHead, minWidth: 48, padding: headerPad }}>TOT</div>
-          </div>
+            {/* Data rows */}
+            <div style={styles.gridBody}>
+              {matRows.map((mat, i) => {
+                const [code, desc] = formatMat(mat);
+                return (
+                  <div key={mat} style={{ ...styles.gridRow, background: i % 2 === 0 ? "#0f172a" : "#111827" }}>
+                    <div style={{ ...styles.matLabel, width: matColW, minWidth: matColW, padding: "4px 6px" }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: "#e2e8f0", lineHeight: 1.2 }}>{code}</div>
+                      <div style={{ fontSize: 8, color: "#64748b", lineHeight: 1.2, marginTop: 1 }}>{desc}</div>
+                    </div>
+                    {LENGTHS.map((len) => {
+                      const val = currentArea?.data[mat]?.[len] || 0;
+                      const disabled = isDisabledCell(mat, len);
+                      return (
+                        <button
+                          key={len}
+                          disabled={disabled}
+                          style={{ ...styles.cell, width: cellW, minWidth: cellW, height: cellH, fontSize: cellFontSize, background: disabled ? "#0a0f1e" : val > 0 ? "#1e3a5f" : "#1e293b", color: disabled ? "#1e293b" : val > 0 ? "#60a5fa" : "#475569", cursor: disabled ? "not-allowed" : "pointer" }}
+                          onPointerDown={() => !disabled && startLongPress(mat, len)}
+                          onPointerUp={() => { if (!disabled) { cancelLongPress(); handleCellPress(mat, len); } }}
+                          onPointerLeave={cancelLongPress}
+                          onContextMenu={(e) => { e.preventDefault(); if (!disabled) updateQty(mat, len, -1); }}
+                        >
+                          {disabled ? "—" : val > 0 ? val : "·"}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
 
-          {/* Data rows */}
-          <div style={{ ...styles.gridBody, minWidth: matColW + LENGTHS.length * 50 + 48 }}>
-            {matRows.map((mat, i) => (
-              <div key={mat} style={{ ...styles.gridRow, background: i % 2 === 0 ? "#0f172a" : "#111827" }}>
-                <div style={{ ...styles.matLabel, width: matColW, minWidth: matColW, fontSize: isLandscape ? 10 : 10.5, padding: isLandscape ? "4px 8px" : "6px 8px" }}>{mat}</div>
-                {LENGTHS.map((len) => {
-                  const val = currentArea?.data[mat]?.[len] || 0;
-                  const disabled = isDisabledCell(mat, len);
-                  return (
-                    <button
-                      key={len}
-                      disabled={disabled}
-                      style={{ ...styles.cell, height: cellH, fontSize: cellFontSize, background: disabled ? "#0a0f1e" : val > 0 ? "#1e3a5f" : "#1e293b", color: disabled ? "#1e293b" : val > 0 ? "#60a5fa" : "#475569", cursor: disabled ? "not-allowed" : "pointer" }}
-                      onPointerDown={() => !disabled && startLongPress(mat, len)}
-                      onPointerUp={() => { if (!disabled) { cancelLongPress(); handleCellPress(mat, len); } }}
-                      onPointerLeave={cancelLongPress}
-                      onContextMenu={(e) => { e.preventDefault(); if (!disabled) updateQty(mat, len, -1); }}
-                    >
-                      {disabled ? "—" : val > 0 ? val : "·"}
-                    </button>
-                  );
-                })}
-                <div style={{ ...styles.totalCell, minWidth: 48, height: cellH, fontSize: isLandscape ? 12 : 13, color: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center", background: i % 2 === 0 ? "#0f172a" : "#111827" }}>
-                  {LENGTHS.reduce((s, len) => s + (currentArea?.data[mat]?.[len] || 0), 0) || "·"}
-                </div>
-              </div>
-            ))}
           </div>
         </div>
 
