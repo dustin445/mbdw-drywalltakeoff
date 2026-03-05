@@ -237,12 +237,15 @@ export default function TakeoffApp() {
   const longPressFired = useRef(false);
   const startLongPress = (mat, len) => {
     longPressFired.current = false;
+    clearTimeout(longPressTimer.current);
     longPressTimer.current = setTimeout(() => {
       longPressFired.current = true;
       updateQty(mat, len, -1);
-    }, 500);
+    }, 600);
   };
-  const cancelLongPress = () => clearTimeout(longPressTimer.current);
+  const cancelLongPress = () => {
+    clearTimeout(longPressTimer.current);
+  };
 
   const updateAccessory = (product, field, value) => {
     setJobs((prev) =>
@@ -316,6 +319,33 @@ export default function TakeoffApp() {
     setJobs((prev) => prev.filter((j) => j.id !== jobId));
     if (currentJobId === jobId) setCurrentJobId(null);
     setDeleteJobId(null);
+  };
+
+  const duplicateJob = (jobId) => {
+    const source = jobs.find(j => j.id === jobId);
+    if (!source) return;
+    const newJob = {
+      ...JSON.parse(JSON.stringify(source)),
+      id: generateId(),
+      name: source.name + " (Copy)",
+      areas: source.areas.map(a => ({ ...JSON.parse(JSON.stringify(a)), id: generateId() })),
+    };
+    setJobs(prev => [...prev, newJob]);
+    showToast("✅ Job duplicated!");
+  };
+
+  const duplicateArea = (areaId) => {
+    const source = currentJob?.areas.find(a => a.id === areaId);
+    if (!source) return;
+    const newArea = {
+      ...JSON.parse(JSON.stringify(source)),
+      id: generateId(),
+      name: source.name + " (Copy)",
+    };
+    setJobs(prev => prev.map(j =>
+      j.id !== currentJobId ? j : { ...j, areas: [...j.areas, newArea] }
+    ));
+    showToast("✅ Area duplicated!");
   };
 
   const renameArea = (areaId, newName) => {
@@ -641,6 +671,12 @@ export default function TakeoffApp() {
                 )}
                 {editingJobId !== job.id && (
                   <button
+                    style={styles.renameAreaBtn}
+                    onClick={() => duplicateJob(job.id)}
+                  >⧉</button>
+                )}
+                {editingJobId !== job.id && (
+                  <button
                     style={{ ...styles.deleteAreaBtn, color: "#ef4444" }}
                     onClick={() => setDeleteJobId(job.id)}
                   >🗑</button>
@@ -757,6 +793,7 @@ export default function TakeoffApp() {
                       <span style={{ fontSize: 20 }}>›</span>
                     </button>
                     <button style={styles.renameAreaBtn} onClick={() => { setRenamingAreaId(area.id); setRenameAreaValue(area.name); }}>✏️</button>
+                    <button style={styles.renameAreaBtn} onClick={() => duplicateArea(area.id)}>⧉</button>
                     <button style={styles.deleteAreaBtn} onClick={() => deleteArea(area.id)}>🗑</button>
                   </>
                 )}
@@ -956,7 +993,7 @@ export default function TakeoffApp() {
                           style={{ ...styles.cell, width: cellW, minWidth: cellW, height: cellH, fontSize: cellFontSize, background: disabled ? "#0a0f1e" : val > 0 ? "#1e3a5f" : "#1e293b", color: disabled ? "#1e293b" : val > 0 ? "#60a5fa" : "#475569", cursor: disabled ? "not-allowed" : "pointer" }}
                           onPointerDown={() => !disabled && startLongPress(mat, len)}
                           onPointerUp={() => { if (!disabled) { cancelLongPress(); if (!longPressFired.current) handleCellPress(mat, len); } }}
-                          onPointerLeave={cancelLongPress}
+                          onPointerCancel={cancelLongPress}
                           onContextMenu={(e) => { e.preventDefault(); if (!disabled) updateQty(mat, len, -1); }}
                         >
                           {disabled ? "—" : val > 0 ? val : "·"}
