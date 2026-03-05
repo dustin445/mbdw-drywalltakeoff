@@ -310,6 +310,13 @@ export default function TakeoffApp() {
     );
   };
 
+  const [deleteJobId, setDeleteJobId] = useState(null);
+  const deleteJob = (jobId) => {
+    setJobs((prev) => prev.filter((j) => j.id !== jobId));
+    if (currentJobId === jobId) setCurrentJobId(null);
+    setDeleteJobId(null);
+  };
+
   const renameArea = (areaId, newName) => {
     if (!newName.trim()) return;
     setJobs((prev) =>
@@ -631,6 +638,12 @@ export default function TakeoffApp() {
                     onClick={() => { setEditingJobId(job.id); setEditJobName(job.name); setEditJobNumber(job.jobNumber || ""); }}
                   >✏️</button>
                 )}
+                {editingJobId !== job.id && (
+                  <button
+                    style={{ ...styles.deleteAreaBtn, color: "#ef4444" }}
+                    onClick={() => setDeleteJobId(job.id)}
+                  >🗑</button>
+                )}
               </div>
             ))}
           </div>
@@ -675,6 +688,21 @@ export default function TakeoffApp() {
                 : "Preloads Upper Floor, Main Floor, Basement, Suite, Garage"}
             </div>
             <button style={styles.btnPrimary} onClick={createJob}>Create Job</button>
+          </Modal>
+        )}
+
+        {deleteJobId && (
+          <Modal title="Delete Job?" onClose={() => setDeleteJobId(null)}>
+            <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 16 }}>
+              Are you sure you want to delete <strong style={{ color: "#f1f5f9" }}>{jobs.find(j => j.id === deleteJobId)?.name}</strong>? This cannot be undone.
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                style={{ ...styles.btnPrimary, background: "#dc2626", flex: 1 }}
+                onClick={() => deleteJob(deleteJobId)}
+              >Delete</button>
+              <button style={{ ...styles.smallBtn, flex: 1, padding: "12px" }} onClick={() => setDeleteJobId(null)}>Cancel</button>
+            </div>
           </Modal>
         )}
       </div>
