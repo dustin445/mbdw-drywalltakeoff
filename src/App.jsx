@@ -116,7 +116,8 @@ export default function TakeoffApp() {
   const [editingJobId, setEditingJobId] = useState(null);
   const [editJobName, setEditJobName] = useState("");
   const [editJobNumber, setEditJobNumber] = useState("");
-  const [newAreaName, setNewAreaName] = useState("");
+  const [dragIndex, setDragIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
   const [showNewJobModal, setShowNewJobModal] = useState(false);
   const [showNewAreaModal, setShowNewAreaModal] = useState(false);
   const [showMaterialPicker, setShowMaterialPicker] = useState(false);
@@ -232,8 +233,11 @@ export default function TakeoffApp() {
 
   const handleCellPress = (mat, len) => updateQty(mat, len, 1);
 
+  const longPressFired = useRef(false);
   const startLongPress = (mat, len) => {
+    longPressFired.current = false;
     longPressTimer.current = setTimeout(() => {
+      longPressFired.current = true;
       updateQty(mat, len, -1);
     }, 500);
   };
@@ -801,28 +805,48 @@ export default function TakeoffApp() {
         )}
 
         {showMaterialPicker && (
-          <Modal title="Select Materials" onClose={() => setShowMaterialPicker(false)} tall>
-            <p style={{ color: "#aaa", fontSize: 12, marginBottom: 8 }}>Tap to toggle active materials.</p>
+          <Modal title="Select & Order Materials" onClose={() => setShowMaterialPicker(false)} tall>
+            <p style={{ color: "#aaa", fontSize: 12, marginBottom: 8 }}>Tap to toggle · Drag ☰ to reorder active materials.</p>
             <div style={{ overflowY: "auto", flex: 1 }}>
-              {selectedMaterials.concat(
-                MATERIALS.filter(m => !selectedMaterials.includes(m))
-              ).map((m) => {
-                const active = selectedMaterials.includes(m);
-                return (
+              {/* Active materials — draggable */}
+              {selectedMaterials.map((m, i) => (
+                <div
+                  key={m}
+                  draggable
+                  onDragStart={() => setDragIndex(i)}
+                  onDragOver={(e) => { e.preventDefault(); setDragOverIndex(i); }}
+                  onDrop={() => {
+                    if (dragIndex === null || dragIndex === i) return;
+                    const next = [...selectedMaterials];
+                    const [moved] = next.splice(dragIndex, 1);
+                    next.splice(i, 0, moved);
+                    setSelectedMaterials(next);
+                    setDragIndex(null);
+                    setDragOverIndex(null);
+                  }}
+                  onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
+                  style={{ ...styles.matToggle, background: "#2563eb22", borderColor: dragOverIndex === i ? "#60a5fa" : "#2563eb", display: "flex", alignItems: "center", cursor: "grab", opacity: dragIndex === i ? 0.4 : 1 }}
+                >
+                  <span style={{ color: "#475569", fontSize: 16, marginRight: 8, cursor: "grab" }}>☰</span>
+                  <span style={{ color: "#60a5fa" }}>✓</span>
+                  <span style={{ color: "#e2e8f0", fontSize: 13, marginLeft: 8, flex: 1 }}>{m}</span>
                   <button
-                    key={m}
-                    style={{ ...styles.matToggle, background: active ? "#2563eb22" : "#1a1a2e", borderColor: active ? "#2563eb" : "#333" }}
-                    onClick={() =>
-                      setSelectedMaterials((prev) =>
-                        active ? prev.filter((x) => x !== m) : [...prev, m]
-                      )
-                    }
-                  >
-                    <span style={{ color: active ? "#60a5fa" : "#888" }}>{active ? "✓" : "○"}</span>
-                    <span style={{ color: active ? "#e2e8f0" : "#aaa", fontSize: 13, marginLeft: 8 }}>{m}</span>
-                  </button>
-                );
-              })}
+                    style={{ background: "none", border: "none", color: "#475569", fontSize: 18, cursor: "pointer", padding: "0 4px" }}
+                    onClick={(e) => { e.stopPropagation(); setSelectedMaterials(prev => prev.filter(x => x !== m)); }}
+                  >×</button>
+                </div>
+              ))}
+              {/* Inactive materials */}
+              {MATERIALS.filter(m => !selectedMaterials.includes(m)).map((m) => (
+                <button
+                  key={m}
+                  style={{ ...styles.matToggle, background: "#1a1a2e", borderColor: "#333" }}
+                  onClick={() => setSelectedMaterials(prev => [...prev, m])}
+                >
+                  <span style={{ color: "#888" }}>○</span>
+                  <span style={{ color: "#aaa", fontSize: 13, marginLeft: 8 }}>{m}</span>
+                </button>
+              ))}
               {/* Custom material input */}
               <div style={{ borderTop: "1px solid #1e293b", paddingTop: 10, marginTop: 6 }}>
                 <div style={{ fontSize: 11, color: "#475569", fontWeight: 700, letterSpacing: 1.5, marginBottom: 8 }}>ADD CUSTOM MATERIAL</div>
@@ -902,7 +926,7 @@ export default function TakeoffApp() {
                           disabled={disabled}
                           style={{ ...styles.cell, width: cellW, minWidth: cellW, height: cellH, fontSize: cellFontSize, background: disabled ? "#0a0f1e" : val > 0 ? "#1e3a5f" : "#1e293b", color: disabled ? "#1e293b" : val > 0 ? "#60a5fa" : "#475569", cursor: disabled ? "not-allowed" : "pointer" }}
                           onPointerDown={() => !disabled && startLongPress(mat, len)}
-                          onPointerUp={() => { if (!disabled) { cancelLongPress(); handleCellPress(mat, len); } }}
+                          onPointerUp={() => { if (!disabled) { cancelLongPress(); if (!longPressFired.current) handleCellPress(mat, len); } }}
                           onPointerLeave={cancelLongPress}
                           onContextMenu={(e) => { e.preventDefault(); if (!disabled) updateQty(mat, len, -1); }}
                         >
