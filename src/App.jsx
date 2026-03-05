@@ -120,6 +120,7 @@ export default function TakeoffApp() {
   const [dragOverIndex, setDragOverIndex] = useState(null);
   const [showNewJobModal, setShowNewJobModal] = useState(false);
   const [showNewAreaModal, setShowNewAreaModal] = useState(false);
+  const [newAreaName, setNewAreaName] = useState("");
   const [showMaterialPicker, setShowMaterialPicker] = useState(false);
   const [selectedMaterials, setSelectedMaterials] = useState(() => {
     try {
@@ -491,7 +492,7 @@ export default function TakeoffApp() {
     return (
       <div style={{ ...styles.shell, maxWidth: 520, alignItems: "center", justifyContent: "center" }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 24px", width: "100%" }}>
-          <img src={MBDW_LOGO} alt="MBDW" style={{ height: 72, marginBottom: 24, objectFit: "contain" }} />
+          <img src={MBDW_LOGO} alt="MBDW" style={{ height: 72, marginBottom: 24, objectFit: "contain", mixBlendMode: "screen" }} />
           <div style={{ fontSize: 20, fontWeight: 800, color: "#f1f5f9", marginBottom: 4 }}>Maclean Bros.</div>
           <div style={{ fontSize: 13, color: "#475569", marginBottom: 40, letterSpacing: 1 }}>Drywall Takeoff App</div>
           <div style={{ width: "100%", maxWidth: 320 }}>
@@ -552,7 +553,7 @@ export default function TakeoffApp() {
           <img
             src={MBDW_LOGO}
             alt="Maclean Bros. Drywall"
-            style={{ height: 38, objectFit: "contain" }}
+            style={{ height: 38, objectFit: "contain", mixBlendMode: "screen" }}
           />
           <span style={styles.logo}>Maclean Bros.</span>
           {jobs.length > 0 && (
