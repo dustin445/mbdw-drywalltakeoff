@@ -27,15 +27,15 @@ const LENGTHS = ["8'", "9'", "10'", "12'", "14'"];
 
 const ACCESSORIES = {
   "Mud & Tape": [
+    "RPJNTP (DRYWALL TAPE 500')",
     "SYLLJT17 (SYNKO LITE JOINT MUD YELLOW)",
     "SYCLFN17 (SYNKO CLASSIS FINISH RED)",
-    "SYPDCF (SYNKO CONCRETE FILL)",
     "HMRL17 (HAMILTON RED LINE FINISH)",
-    "RPJNTP (DRYWALL TAPE 500')",
+    "SYPDCF (SYNKO CONCRETE FILL)",
     "RPFIBA (FIBREGLASS TAPE 300')",
-    "RPLL100 (LEVEL LINE)",
   ],
   "Beads & Trim": [
+    "RPLL100 (LEVEL LINE)",
     "PBTBD (BULLDOG TAPE ON CORNER BEAD)",
     "B1XW (PROBEAD EXTRA WIDE BEAD)",
     "PJC58 (5/8\" PLASTIC J)",
@@ -120,6 +120,10 @@ export default function TakeoffApp() {
   const [dragIndex, setDragIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
   const [showNewJobModal, setShowNewJobModal] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState(
+    Object.keys(ACCESSORIES).reduce((acc, cat) => ({ ...acc, [cat]: cat !== "Mud & Tape" }), {})
+  );
+  const toggleSection = (cat) => setCollapsedSections(prev => ({ ...prev, [cat]: !prev[cat] }));
   const [showNewAreaModal, setShowNewAreaModal] = useState(false);
   const [newAreaName, setNewAreaName] = useState("");
   const [showMaterialPicker, setShowMaterialPicker] = useState(false);
@@ -280,14 +284,21 @@ export default function TakeoffApp() {
     );
   };
 
-  const createJob = () => {
+  const [showJobNumberWarning, setShowJobNumberWarning] = useState(false);
+
+  const createJob = (skipNumberCheck = false) => {
     if (!newJobName.trim()) return;
+    if (!newJobNumber.trim() && !skipNumberCheck) {
+      setShowJobNumberWarning(true);
+      return;
+    }
     const job = initJob(newJobName.trim(), newJobNumber.trim(), newJobType);
     setJobs((prev) => [...prev, job]);
     setNewJobName("");
     setNewJobNumber("");
     setNewJobType("single");
     setShowNewJobModal(false);
+    setShowJobNumberWarning(false);
     setCurrentJobId(job.id);
     setSelectedMaterials([MATERIALS[2], MATERIALS[0], MATERIALS[7], MATERIALS[1]]);
     setScreen("job");
@@ -379,7 +390,9 @@ export default function TakeoffApp() {
   const exportToCSV = async () => {
     if (!currentJob) return;
     const mats = selectedMaterials.length > 0 ? selectedMaterials : MATERIALS;
-    let csv = `"Job: ${currentJob.name}"\n\n`;
+    let csv = currentJob.jobNumber
+      ? `"Job #: ${currentJob.jobNumber}"\n"Order: ${currentJob.name}"\n\n`
+      : `"Order: ${currentJob.name}"\n\n`;
 
     currentJob.areas.forEach((area) => {
       if (areaTotal(area) === 0) return;
@@ -467,10 +480,24 @@ export default function TakeoffApp() {
     return t;
   };
 
-  const sheetWidth = (mat) => mat.includes("1254") ? 4.5 : 4;
+  const sheetWidth = (mat) => {
+    if (mat.includes("1254")) return 4.5;
+    if (mat.startsWith("01GM")) return 2;
+    return 4;
+  };
   const isDisabledCell = (mat, len) => {
+    // 1254 (54" board): no 9' or 14'
     if (mat.includes("1254") && (len === "9'" || len === "14'")) return true;
+    // All 5/8" boards: no 14'
     if (mat.startsWith("58") && len === "14'") return true;
+    // Tilebacker (12TB, 58TB): 8' only
+    if ((mat.startsWith("12TB") || mat.startsWith("58TB")) && len !== "8'") return true;
+    // Securerock (12SR, 58SR): 8' and 10' only
+    if ((mat.startsWith("12SR") || mat.startsWith("58SR")) && (len === "9'" || len === "12'" || len === "14'")) return true;
+    // Durock (12DU, 58DU): 8' only
+    if ((mat.startsWith("12DU") || mat.startsWith("58DU")) && len !== "8'") return true;
+    // Shaft board (01GM): 8' and 10' only
+    if (mat.startsWith("01GM") && (len === "9'" || len === "12'" || len === "14'")) return true;
     return false;
   };
 
@@ -689,7 +716,7 @@ export default function TakeoffApp() {
         <button style={styles.fab} onClick={() => setShowNewJobModal(true)}>＋ New Job</button>
 
         {showNewJobModal && (
-          <Modal title="New Job" onClose={() => { setShowNewJobModal(false); setNewJobName(""); setNewJobNumber(""); setNewJobType("single"); }}>
+          <Modal title="New Job" onClose={() => { setShowNewJobModal(false); setNewJobName(""); setNewJobNumber(""); setNewJobType("single"); setShowJobNumberWarning(false); }}>
             {/* Job type selector */}
             <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
               <button
@@ -715,17 +742,34 @@ export default function TakeoffApp() {
             />
             <input
               style={styles.input}
-              placeholder="Job number (optional)"
+              placeholder="Job number"
               value={newJobNumber}
-              onChange={(e) => setNewJobNumber(e.target.value)}
+              onChange={(e) => { setNewJobNumber(e.target.value); setShowJobNumberWarning(false); }}
               onKeyDown={(e) => e.key === "Enter" && createJob()}
             />
+            {showJobNumberWarning && (
+              <div style={{ background: "#7c2d12", border: "1px solid #f97316", borderRadius: 10, padding: "12px 14px", marginBottom: 8 }}>
+                <div style={{ fontSize: 13, color: "#fed7aa", fontWeight: 600, marginBottom: 10 }}>
+                  ⚠️ Please note that purchasing will not be able to price or process this order without a Job Number.
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    style={{ ...styles.btnPrimary, flex: 1, background: "#ea580c", fontSize: 13, padding: "10px" }}
+                    onClick={() => createJob(true)}
+                  >Continue Without</button>
+                  <button
+                    style={{ ...styles.btnPrimary, flex: 1, fontSize: 13, padding: "10px", background: "#1e40af" }}
+                    onClick={() => setShowJobNumberWarning(false)}
+                  >Add Job Number</button>
+                </div>
+              </div>
+            )}
             <div style={{ fontSize: 12, color: "#475569", marginBottom: 10 }}>
               {newJobType === "multi"
                 ? "Preloads Units 1–6 (renameable)"
                 : "Preloads Upper Floor, Main Floor, Basement, Suite, Garage"}
             </div>
-            <button style={styles.btnPrimary} onClick={createJob}>Create Job</button>
+            <button style={styles.btnPrimary} onClick={() => createJob()}>Create Job</button>
           </Modal>
         )}
 
@@ -1019,6 +1063,16 @@ export default function TakeoffApp() {
   if (screen === "accessories") {
     const areaNames = currentJob?.areas.map((a) => a.name) || [];
 
+    // Mud & tape auto-suggestion rates (single family only)
+    const MUD_SUGGESTIONS = {
+      "RPJNTP (DRYWALL TAPE 500')": 1200,
+      "SYLLJT17 (SYNKO LITE JOINT MUD YELLOW)": 1800,
+      "SYCLFN17 (SYNKO CLASSIS FINISH RED)": 550,
+    };
+
+    // Auto-populate suggested mud quantities for single family jobs
+    const jobTotalSqFt = currentJob?.areas.reduce((s, a) => s + areaSqFt(a, selectedMaterials), 0) || 0;
+
     // Auto-repair: if job was created before accessories were added, initialize them now
     const rawAccessories = currentJob?.accessories;
     if (!rawAccessories || rawAccessories.length === 0) {
@@ -1033,6 +1087,14 @@ export default function TakeoffApp() {
     const accessories = (rawAccessories && rawAccessories.length > 0)
       ? rawAccessories
       : ALL_ACCESSORIES.map((p) => ({ product: p, qty: 0, placement: "" }));
+
+    // For single family jobs with sqft, compute suggested qtys
+    const getSuggestedQty = (product) => {
+      if (currentJob?.type !== "single" || jobTotalSqFt === 0) return null;
+      const rate = MUD_SUGGESTIONS[product];
+      if (!rate) return null;
+      return Math.ceil(jobTotalSqFt / rate);
+    };
 
     return (
       <div ref={shellRef} style={{ ...styles.shell, maxWidth: isLandscape ? "100%" : 520 }}>
@@ -1052,25 +1114,40 @@ export default function TakeoffApp() {
           )}
           {Object.entries(ACCESSORIES).map(([category, products]) => (
             <div key={category}>
-              <div style={styles.accCategoryHeader}>{category}</div>
-              {products.map((product) => {
+              <div
+                style={{ ...styles.accCategoryHeader, display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", userSelect: "none" }}
+                onClick={() => toggleSection(category)}
+              >
+                <span>{category}</span>
+                <span style={{ fontSize: 14, color: "#60a5fa" }}>{collapsedSections[category] ? "▸" : "▾"}</span>
+              </div>
+              {!collapsedSections[category] && products.map((product) => {
                 const entry = accessories.find((a) => a.product === product) || { qty: 0, placement: "" };
                 const isEditingThis = editingQtyProduct === product;
+                const suggestedQty = getSuggestedQty(product);
+                const isAutoSuggested = suggestedQty !== null && entry.qty === 0;
                 return (
-                  <div key={product} style={styles.accRow}>
-                    <div style={styles.accProductName}>{product}</div>
+                  <div key={product} style={{ ...styles.accRow, borderLeft: isAutoSuggested ? "3px solid #f59e0b" : "3px solid transparent" }}>
+                    <div style={styles.accProductName}>
+                      {product}
+                      {isAutoSuggested && (
+                        <div style={{ fontSize: 10, color: "#f59e0b", marginTop: 2 }}>
+                          ⚠️ Suggested: {suggestedQty} — tap to confirm
+                        </div>
+                      )}
+                    </div>
                     <div style={styles.accControls}>
                       {/* Qty controls */}
                       <div style={styles.accQtyRow}>
                         <button
-                          style={{ ...styles.accQtyBtn, minWidth: 52 }}
+                          style={{ ...styles.accQtyBtn, minWidth: 52, borderColor: isAutoSuggested ? "#f59e0b44" : undefined }}
                           onPointerDown={() => { longPressTimer.current = setTimeout(() => updateAccessoryQty(product, -1), 500); }}
-                          onPointerUp={() => { cancelLongPress(); updateAccessoryQty(product, 1); }}
+                          onPointerUp={() => { cancelLongPress(); updateAccessoryQty(product, isAutoSuggested ? suggestedQty : 1); }}
                           onPointerLeave={cancelLongPress}
                           onContextMenu={(e) => { e.preventDefault(); updateAccessoryQty(product, -1); }}
                         >
-                          <span style={{ color: entry.qty > 0 ? "#60a5fa" : "#475569", fontWeight: 900, fontSize: 18 }}>
-                            {entry.qty > 0 ? entry.qty : "·"}
+                          <span style={{ color: entry.qty > 0 ? "#60a5fa" : isAutoSuggested ? "#f59e0b" : "#475569", fontWeight: 900, fontSize: 18 }}>
+                            {entry.qty > 0 ? entry.qty : isAutoSuggested ? suggestedQty : "·"}
                           </span>
                         </button>
 
@@ -1327,12 +1404,14 @@ const styles = {
     display: "flex",
     alignItems: "center",
     width: "100%",
+    boxSizing: "border-box",
     border: "1px solid #333",
     borderRadius: 8,
-    padding: "10px 12px",
+    padding: "10px 8px",
     marginBottom: 6,
     cursor: "pointer",
     textAlign: "left",
+    overflow: "hidden",
   },
   // Grid
   gridWrapper: {
@@ -1387,6 +1466,7 @@ const styles = {
   overlay: {
     position: "fixed", inset: 0, background: "#000000bb", zIndex: 100,
     display: "flex", alignItems: "flex-end", justifyContent: "center",
+    overflow: "hidden",
   },
   modal: {
     background: "#0d1526",
@@ -1395,7 +1475,8 @@ const styles = {
     borderTopRightRadius: 20,
     padding: 20,
     width: "100%",
-    maxWidth: 480,
+    maxWidth: "100vw",
+    boxSizing: "border-box",
     gap: 12,
   },
   modalHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
@@ -1517,7 +1598,7 @@ const styles = {
   accCategoryHeader: {
     background: "#0d1526",
     color: "#60a5fa",
-    fontSize: 10,
+    fontSize: 15,
     fontWeight: 800,
     letterSpacing: 2,
     padding: "10px 16px 6px",
