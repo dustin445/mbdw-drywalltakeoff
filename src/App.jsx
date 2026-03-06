@@ -250,19 +250,19 @@ export default function TakeoffApp() {
     clearTimeout(bulkDeleteTimer.current);
     clearInterval(bulkInterval.current);
 
-    // 800ms — single delete + show popup
+    // 600ms — show popup only, no delete yet
     longPressTimer.current = setTimeout(() => {
       longPressFired.current = true;
-      updateQty(mat, len, -1);
       setBulkPopup({ x, y, mat, len });
 
-      // 1 more second — start countdown
+      // 600ms more (1200ms total) — start deleting 1 per second
       bulkDeleteTimer.current = setTimeout(() => {
+        updateQty(mat, len, -1);
         bulkInterval.current = setInterval(() => {
           updateQty(mat, len, -1);
         }, 1000);
-      }, 800);
-    }, 800);
+      }, 600);
+    }, 600);
   };
 
   const cancelLongPress = () => {
