@@ -138,6 +138,8 @@ export default function TakeoffApp() {
   const [newCustomMaterial, setNewCustomMaterial] = useState("");
   const [newCustomAccessory, setNewCustomAccessory] = useState("");
   const [toast, setToast] = useState("");
+  const [bulkPopup, setBulkPopup] = useState(null); // { x, y, mat, len, count }
+  const bulkInterval = useRef(null);
   const accScrollRef = useRef(null);
   const shellRef = useRef(null);
   const longPressTimer = useRef(null);
@@ -240,16 +242,40 @@ export default function TakeoffApp() {
   const handleCellPress = (mat, len) => updateQty(mat, len, 1);
 
   const longPressFired = useRef(false);
-  const startLongPress = (mat, len) => {
+  const longPressCooldown = useRef(false);
+  const bulkDeleteTimer = useRef(null);
+
+  const startLongPress = (mat, len, x, y) => {
     longPressFired.current = false;
+    longPressCooldown.current = false;
     clearTimeout(longPressTimer.current);
+    clearTimeout(bulkDeleteTimer.current);
+    clearInterval(bulkInterval.current);
+
+    // 600ms — single delete
     longPressTimer.current = setTimeout(() => {
       longPressFired.current = true;
+      longPressCooldown.current = true;
       updateQty(mat, len, -1);
+      setTimeout(() => { longPressCooldown.current = false; }, 400);
+
+      // 4s total (3.4s after single delete) — start bulk delete popup
+      bulkDeleteTimer.current = setTimeout(() => {
+        // Show popup with current count and start ticking down
+        setBulkPopup({ x, y, mat, len });
+        bulkInterval.current = setInterval(() => {
+          updateQty(mat, len, -1);
+        }, 1000);
+      }, 3400);
     }, 600);
   };
+
   const cancelLongPress = () => {
     clearTimeout(longPressTimer.current);
+    clearTimeout(bulkDeleteTimer.current);
+    clearInterval(bulkInterval.current);
+    setBulkPopup(null);
+    longPressCooldown.current = false;
   };
 
   const updateAccessory = (product, field, value) => {
@@ -1036,9 +1062,9 @@ export default function TakeoffApp() {
                           key={len}
                           disabled={disabled}
                           style={{ ...styles.cell, width: cellW, minWidth: cellW, height: cellH, fontSize: cellFontSize, background: disabled ? "#0a0f1e" : val > 0 ? "#1e3a5f" : "#1e293b", color: disabled ? "#1e293b" : val > 0 ? "#60a5fa" : "#475569", cursor: disabled ? "not-allowed" : "pointer" }}
-                          onPointerDown={() => !disabled && startLongPress(mat, len)}
-                          onPointerUp={() => { if (!disabled) { cancelLongPress(); if (!longPressFired.current) handleCellPress(mat, len); } }}
-                          onPointerCancel={cancelLongPress}
+                          onPointerDown={(e) => !disabled && startLongPress(mat, len, e.clientX, e.clientY)}
+                          onPointerUp={() => { if (!disabled) { cancelLongPress(); if (!longPressFired.current && !longPressCooldown.current) handleCellPress(mat, len); } }}
+                          onPointerCancel={() => cancelLongPress()}
                           onContextMenu={(e) => { e.preventDefault(); if (!disabled) updateQty(mat, len, -1); }}
                         >
                           {disabled ? "—" : val > 0 ? val : "·"}
@@ -1056,6 +1082,20 @@ export default function TakeoffApp() {
         <div style={{ ...styles.hint, fontSize: isLandscape ? 10 : 11, padding: isLandscape ? "4px 0" : "6px 0" }}>
           Tap = +1 &nbsp;|&nbsp; Long press = −1
         </div>
+
+        {/* Bulk delete popup */}
+        {bulkPopup && (() => {
+          const liveVal = currentArea?.data[bulkPopup.mat]?.[bulkPopup.len] || 0;
+          const popX = Math.min(bulkPopup.x, window.innerWidth - 140);
+          const popY = Math.max(bulkPopup.y - 90, 10);
+          return (
+            <div style={{ position: "fixed", left: popX, top: popY, zIndex: 999, background: "#0f172a", border: "2px solid #ef4444", borderRadius: 14, padding: "12px 20px", textAlign: "center", pointerEvents: "none", boxShadow: "0 4px 24px #000a" }}>
+              <div style={{ fontSize: 11, color: "#ef4444", fontWeight: 800, letterSpacing: 1, marginBottom: 4 }}>REMOVING</div>
+              <div style={{ fontSize: 38, fontWeight: 900, color: liveVal > 0 ? "#f87171" : "#475569", lineHeight: 1 }}>{liveVal}</div>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>release to stop</div>
+            </div>
+          );
+        })()}
       </div>
     );
   }
