@@ -242,32 +242,27 @@ export default function TakeoffApp() {
   const handleCellPress = (mat, len) => updateQty(mat, len, 1);
 
   const longPressFired = useRef(false);
-  const longPressCooldown = useRef(false);
   const bulkDeleteTimer = useRef(null);
 
   const startLongPress = (mat, len, x, y) => {
     longPressFired.current = false;
-    longPressCooldown.current = false;
     clearTimeout(longPressTimer.current);
     clearTimeout(bulkDeleteTimer.current);
     clearInterval(bulkInterval.current);
 
-    // 600ms — single delete
+    // 800ms — single delete + show popup
     longPressTimer.current = setTimeout(() => {
       longPressFired.current = true;
-      longPressCooldown.current = true;
       updateQty(mat, len, -1);
-      // Hold cooldown for full 1s so pointerUp can never fire +1 after
-      setTimeout(() => { longPressCooldown.current = false; }, 1000);
+      setBulkPopup({ x, y, mat, len });
 
-      // 2.5s total (1.9s after single delete) — start bulk delete popup
+      // 1 more second — start countdown
       bulkDeleteTimer.current = setTimeout(() => {
-        setBulkPopup({ x, y, mat, len });
         bulkInterval.current = setInterval(() => {
           updateQty(mat, len, -1);
         }, 1000);
-      }, 1900);
-    }, 600);
+      }, 800);
+    }, 800);
   };
 
   const cancelLongPress = () => {
@@ -275,7 +270,6 @@ export default function TakeoffApp() {
     clearTimeout(bulkDeleteTimer.current);
     clearInterval(bulkInterval.current);
     setBulkPopup(null);
-    setTimeout(() => { longPressCooldown.current = false; }, 100);
   };
 
   const updateAccessory = (product, field, value) => {
@@ -1063,7 +1057,7 @@ export default function TakeoffApp() {
                           disabled={disabled}
                           style={{ ...styles.cell, width: cellW, minWidth: cellW, height: cellH, fontSize: cellFontSize, background: disabled ? "#0a0f1e" : val > 0 ? "#1e3a5f" : "#1e293b", color: disabled ? "#1e293b" : val > 0 ? "#60a5fa" : "#475569", cursor: disabled ? "not-allowed" : "pointer" }}
                           onPointerDown={(e) => !disabled && startLongPress(mat, len, e.clientX, e.clientY)}
-                          onPointerUp={() => { if (!disabled) { cancelLongPress(); if (!longPressFired.current && !longPressCooldown.current) handleCellPress(mat, len); } }}
+                          onPointerUp={() => { cancelLongPress(); if (!disabled && !longPressFired.current) handleCellPress(mat, len); }}
                           onPointerCancel={() => cancelLongPress()}
                           onContextMenu={(e) => { e.preventDefault(); if (!disabled) updateQty(mat, len, -1); }}
                         >
