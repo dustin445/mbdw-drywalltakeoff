@@ -257,16 +257,16 @@ export default function TakeoffApp() {
       longPressFired.current = true;
       longPressCooldown.current = true;
       updateQty(mat, len, -1);
-      setTimeout(() => { longPressCooldown.current = false; }, 400);
+      // Hold cooldown for full 1s so pointerUp can never fire +1 after
+      setTimeout(() => { longPressCooldown.current = false; }, 1000);
 
-      // 4s total (3.4s after single delete) — start bulk delete popup
+      // 2.5s total (1.9s after single delete) — start bulk delete popup
       bulkDeleteTimer.current = setTimeout(() => {
-        // Show popup with current count and start ticking down
         setBulkPopup({ x, y, mat, len });
         bulkInterval.current = setInterval(() => {
           updateQty(mat, len, -1);
         }, 1000);
-      }, 3400);
+      }, 1900);
     }, 600);
   };
 
@@ -275,7 +275,7 @@ export default function TakeoffApp() {
     clearTimeout(bulkDeleteTimer.current);
     clearInterval(bulkInterval.current);
     setBulkPopup(null);
-    longPressCooldown.current = false;
+    setTimeout(() => { longPressCooldown.current = false; }, 100);
   };
 
   const updateAccessory = (product, field, value) => {
@@ -1086,8 +1086,8 @@ export default function TakeoffApp() {
         {/* Bulk delete popup */}
         {bulkPopup && (() => {
           const liveVal = currentArea?.data[bulkPopup.mat]?.[bulkPopup.len] || 0;
-          const popX = Math.min(bulkPopup.x, window.innerWidth - 140);
-          const popY = Math.max(bulkPopup.y - 90, 10);
+          const popX = Math.min(Math.max(bulkPopup.x - 65, 10), window.innerWidth - 150);
+          const popY = Math.max(bulkPopup.y - 180, 10);
           return (
             <div style={{ position: "fixed", left: popX, top: popY, zIndex: 999, background: "#0f172a", border: "2px solid #ef4444", borderRadius: 14, padding: "12px 20px", textAlign: "center", pointerEvents: "none", boxShadow: "0 4px 24px #000a" }}>
               <div style={{ fontSize: 11, color: "#ef4444", fontWeight: 800, letterSpacing: 1, marginBottom: 4 }}>REMOVING</div>
