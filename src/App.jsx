@@ -4,69 +4,128 @@ import { useState, useRef, useEffect } from "react";
 const MBDW_LOGO = "data:image/png;base64,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";
 const MATERIALS = [
   "12ST (1/2\" STD)",
-  "58ULIX (5/8\" ULTRALIGHT)",
   "58FG (5/8\" FIREGUARD)",
-  "12TB (1/2\" TILEBACKER)",
-  "58TB (5/8\" TILEBACKER)",
+  "58ULIX (5/8\" ULTRALIGHT)",
   "12CD (1/2\" CEILING BOARD)",
-  "14FL (1/4\" FLEXIBLE)",
-  "1254 (1/2\" 54\" STD)",
-  "12DU (1/2\" DUROCK)",
-  "58DU (5/8\" DUROCK)",
   "12MOLD (1/2\" AQUA BOARD)",
   "58MOLD (5/8\" AQUA BOARD)",
-  "12SR (1/2\" SECUREROCK)",
-  "58SR (5/8\" SECUREROCK)",
   "12FG (1/2\" FIREGUARD)",
   "12AR (1/2\" ABUSE RESISTANT)",
   "58AR (5/8\" ABUSE RESISTANT)",
+  "1254 (1/2\" 54\" STD)",
+  "14FL (1/4\" FLEXIBLE)",
+  "12TB (1/2\" TILEBACKER)",
+  "58TB (5/8\" TILEBACKER)",
+  "12DU (1/2\" DUROCK)",
+  "58DU (5/8\" DUROCK)",
+  "12SR (1/2\" SECUREROCK)",
+  "58SR (5/8\" SECUREROCK)",
   "01GM (SHAFT BOARD)",
 ];
 
 const LENGTHS = ["8'", "9'", "10'", "12'", "14'"];
 
-// ─── MATERIAL PRICING (Shoemaker price list, effective Feb 20 2026) ───────────
-// Per-sheet prices by material code and length. Update via Admin Pricing screen.
-// Stored in localStorage key: takeoff_sheet_prices (overrides these defaults)
-const DEFAULT_SHEET_PRICES = {
-  "12ST":   { "8'": 14.40, "9'": 16.20, "10'": 18.00, "12'": 21.60, "14'": 25.20 },
-  "58ULIX": { "8'": 19.07, "9'": 21.46, "10'": 23.84, "12'": 28.61, "14'": null  },
-  "58FG":   { "8'": 18.08, "9'": 20.34, "10'": 22.60, "12'": 27.12, "14'": null  },
-  "12TB":   { "8'": 51.84, "9'": null,   "10'": null,   "12'": null,   "14'": null  },
-  "58TB":   { "8'": 59.04, "9'": null,   "10'": null,   "12'": null,   "14'": null  },
-  "12CD":   { "8'": 18.24, "9'": null,   "10'": 22.80, "12'": 27.36, "14'": 31.92 },
-  "14FL":   { "8'": 26.02, "9'": null,   "10'": null,   "12'": 39.02, "14'": null  },
-  "1254":   { "8'": 20.34, "9'": null,   "10'": 25.43, "12'": 30.51, "14'": null  },
-  "12DU":   { "8'": 55.04, "9'": null,   "10'": null,   "12'": null,   "14'": null  },
-  "58DU":   { "8'": 78.72, "9'": null,   "10'": null,   "12'": null,   "14'": null  },
-  "12MOLD": { "8'": 34.40, "9'": null,   "10'": 43.00, "12'": 51.60, "14'": null  },
-  "58MOLD": { "8'": 40.00, "9'": 45.00, "10'": 50.00, "12'": 60.00, "14'": null  },
-  "12SR":   { "8'": 37.44, "9'": null,   "10'": null,   "12'": null,   "14'": null  },
-  "58SR":   { "8'": 40.54, "9'": null,   "10'": 50.68, "12'": null,   "14'": null  },
-  "12FG":   { "8'": 18.24, "9'": null,   "10'": 22.80, "12'": 27.36, "14'": null  },
-  "12AR":   { "8'": 37.95, "9'": null,   "10'": 47.44, "12'": 56.93, "14'": null  },
-  "58AR":   { "8'": 44.35, "9'": 49.90, "10'": 55.44, "12'": 66.53, "14'": null  },
-  "01GM":   { "8'": 30.66, "9'": null,   "10'": 38.32, "12'": null,   "14'": null  },
+// ─── MATERIAL PRICING (price per sqft) ────────────────────────────────────────
+// One price-per-sqft per material. Derived from Shoemaker Feb 20 2026 price list.
+// Stored in localStorage key: takeoff_sqft_prices (overrides these defaults)
+const DEFAULT_SQFT_PRICES = {
+  "12ST":   0.4500,
+  "58ULIX": 0.5960,
+  "58FG":   0.5650,
+  "12TB":   1.6200,
+  "58TB":   1.8450,
+  "12CD":   0.5700,
+  "14FL":   0.8130,
+  "1254":   0.5650,
+  "12DU":   1.7200,
+  "58DU":   2.4600,
+  "12MOLD": 1.0750,
+  "58MOLD": 1.2500,
+  "12SR":   1.1700,
+  "58SR":   1.2669,
+  "12FG":   0.5700,
+  "12AR":   1.1860,
+  "58AR":   1.3860,
+  "01GM":   1.9161,
 };
 
-const loadSheetPrices = () => {
+const loadSqftPrices = () => {
   try {
-    const saved = localStorage.getItem("takeoff_sheet_prices");
+    const saved = localStorage.getItem("takeoff_sqft_prices");
     if (saved) {
       const parsed = JSON.parse(saved);
-      return { ...JSON.parse(JSON.stringify(DEFAULT_SHEET_PRICES)), ...parsed };
+      return { ...JSON.parse(JSON.stringify(DEFAULT_SQFT_PRICES)), ...parsed };
     }
   } catch(e) {}
-  return JSON.parse(JSON.stringify(DEFAULT_SHEET_PRICES));
+  return JSON.parse(JSON.stringify(DEFAULT_SQFT_PRICES));
 };
 
-const saveSheetPrices = (prices) => {
-  try { localStorage.setItem("takeoff_sheet_prices", JSON.stringify(prices)); } catch(e) {}
+const saveSqftPrices = (prices) => {
+  try { localStorage.setItem("takeoff_sqft_prices", JSON.stringify(prices)); } catch(e) {}
 };
 
-const getSheetPrice = (prices, mat, length) => {
+const getSqftPrice = (prices, mat) => {
   const code = mat.split(" ")[0];
-  return prices?.[code]?.[length] ?? null;
+  return prices?.[code] ?? null;
+};
+
+// ─── ACCESSORY PRICING (Shoemaker price list, effective Feb 20 2026) ──────────
+// Per-unit prices for each accessory code. Update via Admin Pricing screen.
+// Stored in localStorage key: takeoff_acc_prices (overrides these defaults)
+const DEFAULT_ACC_PRICES = {
+  // Mud & Tape
+  "RPHBTP":   { price: 7.80,   unit: "roll" },  // TPJT500 — Joint Tape 500'
+  "SYLLJT17": { price: 23.00,  unit: "box"  },  // CGC-332032 — Synko Lite Joint Taping 17L
+  "SYCLFN17": { price: 23.00,  unit: "box"  },  // CGC-332038 — Synko Classic Finish 17L
+  "HMRL17":   { price: 23.50,  unit: "box"  },  // HM-18061CD — Hamilton Redline 17L
+  "SYPDCF":   { price: 47.50,  unit: "bag"  },  // CGC-330027 — Synko Concrete Filler 15kg
+  "RPFIBA":   { price: 15.70,  unit: "roll" },  // TPFG300 — Fibreglass Tape 300'
+  // Beads & Trim — price per FOOT (they come in multiple lengths)
+  "RPLL100":  { price: 61.00, unit: "roll" },  // CT-639586 Ultra Flex No-Coat 3.25" x 100' — $61.00/roll
+  "PBTBD":    { price: 0.469, unit: "ft"   },  // CGC-283839 469.00/MLF → $0.469/ft
+  "B1XW":     { price: 0.391, unit: "ft"   },  // CGC-B1XWEL 391.00/MLF → $0.391/ft
+  "PJC58":    { price: 0.242, unit: "ft"   },  // TT-1210 $2.42/10' → $0.242/ft
+  "PJC12":    { price: 0.242, unit: "ft"   },  // TT-1110 $2.42/10' → $0.242/ft
+  "PBB9":     { price: 0.579, unit: "ft"   },  // CGC-B912 579.00/MLF → $0.579/ft
+  "PB58A9":   { price: 0.456, unit: "ft"   },  // CGC-B458 456.00/MLF → $0.456/ft
+  "VB41":     { price: 0.397, unit: "ft"   },  // TT-4110 $3.97/10' → $0.397/ft
+  "VB9000":   { price: 0.329, unit: "ft"   },  // TT-9000 $3.29/10' → $0.329/ft
+  // Metal & Track
+  "MS18RES":  { price: 3.95,   unit: "pc"   },  // SRC-18 12' — Resilient Channel
+  "MS18124":  { price: 3.25,   unit: "pc"   },  // 125150SA-18 10' — 1-1/4\"x1-1/2\" Angle
+  "MS18HAT":  { price: 6.12,   unit: "pc"   },  // SFC-18 12' — Hat Track
+  // Fasteners & Adhesives
+  "ADDSA2":   { price: 10.20,  unit: "tube" },  // ITW-DSA20 — DSA 20 Adhesive
+  "ADDSA4":   { price: 10.20,  unit: "tube" },  // ITW-DSA20 — DSA 40 Adhesive (approx)
+  "DS001F":   { price: 102.00, unit: "box"  },  // GRA-168 — 1\" Fine DW Screws 10M
+  "JW15104":  { price: 37.80,  unit: "box"  },  // GRA-VB368 — 1-1/4\" Fine 5LB
+  "DS114C":   { price: 76.00,  unit: "box"  },  // GRA-300 — 1-1/4\" Coarse 8M
+  "DS002C":   { price: 67.00,  unit: "box"  },  // GRA-500 — 2\" Coarse 3.5M
+  "DS002F":   { price: 66.50,  unit: "box"  },  // GRA-768 — 2\" Fine 3.5M
+};
+
+const loadAccPrices = () => {
+  try {
+    const saved = localStorage.getItem("takeoff_acc_prices");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return { ...JSON.parse(JSON.stringify(DEFAULT_ACC_PRICES)), ...parsed };
+    }
+  } catch(e) {}
+  return JSON.parse(JSON.stringify(DEFAULT_ACC_PRICES));
+};
+
+const saveAccPrices = (prices) => {
+  try { localStorage.setItem("takeoff_acc_prices", JSON.stringify(prices)); } catch(e) {}
+};
+
+// Sheet sqft helper (width × length_ft)
+const sheetSqft = (mat, length) => {
+  const code = mat.split(" ")[0];
+  const lenFt = parseInt(length);
+  if (code === "1254") return 4.5 * lenFt;
+  if (code === "01GM") return 2 * lenFt;
+  return 4 * lenFt;
 };
 
 
@@ -107,6 +166,13 @@ const ACCESSORIES = {
 };
 
 const ALL_ACCESSORIES = Object.values(ACCESSORIES).flat();
+
+// Beads & Trim products that use line-item (qty × length) entry
+// RPLL100 (Level Line) is excluded — it stays as a roll qty
+const BEAD_PRODUCTS = [
+  "PBTBD", "B1XW", "PJC58", "PJC12", "PBB9", "PB58A9", "VB41", "VB9000",
+];
+const isBeadProduct = (product) => BEAD_PRODUCTS.some(code => product.startsWith(code));
 
 const DEFAULT_AREAS = ["Upper Floor", "Main Floor", "Basement", "Basement Suite", "Garage"];
 const MULTIFAMILY_AREAS = ["Unit 1", "Unit 2", "Unit 3", "Unit 4", "Unit 5", "Unit 6"];
@@ -151,6 +217,124 @@ const initJob = (name, jobNumber = "", type = "single") => ({
   accessories: ALL_ACCESSORIES.map((p) => ({ product: p, qty: 0, placement: "General" })),
   ...(type === "budget" ? { budgetPricing: initBudgetPricing() } : {}),
 });
+
+// ─── PRICING COMPONENTS (module-level so hooks work correctly) ───────────────
+function PricingRow({ code, label, price, defaultPrice, unit, onSave }) {
+  const [editing, setEditing] = React.useState(false);
+  const [val, setVal] = React.useState("");
+  const isCustom = price !== defaultPrice;
+  const startEdit = () => { setVal(String(price)); setEditing(true); };
+  const commit = () => {
+    const n = parseFloat(val);
+    if (!isNaN(n) && n > 0) onSave(Math.round(n * 10000) / 10000);
+    setEditing(false);
+  };
+  return (
+    <div style={{ display: "flex", alignItems: "center", padding: "9px 14px", borderBottom: "1px solid #1e293b", gap: 10 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: "#e2e8f0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
+        {isCustom && <div style={{ fontSize: 10, color: "#f59e0b" }}>● custom</div>}
+      </div>
+      {editing ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+          <input
+            autoFocus
+            type="number"
+            step="0.0001"
+            value={val}
+            onChange={e => setVal(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") setEditing(false); }}
+            style={{ width: 76, background: "#1e293b", border: "1px solid #2563eb", borderRadius: 6, color: "#e2e8f0", fontSize: 13, padding: "5px 8px", outline: "none", textAlign: "right" }}
+          />
+          <button onClick={commit} style={{ background: "#22c55e", border: "none", borderRadius: 6, color: "#fff", fontSize: 11, fontWeight: 700, padding: "5px 9px", cursor: "pointer" }}>✓</button>
+          <button onClick={() => setEditing(false)} style={{ background: "#334155", border: "none", borderRadius: 6, color: "#94a3b8", fontSize: 11, padding: "5px 7px", cursor: "pointer" }}>✕</button>
+        </div>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#34d399", textAlign: "right" }}>
+            ${price.toFixed(2)}<span style={{ fontSize: 10, color: "#64748b", fontWeight: 400 }}>/{unit}</span>
+          </div>
+          <button onClick={startEdit} style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 6, color: "#94a3b8", fontSize: 11, fontWeight: 700, padding: "5px 10px", cursor: "pointer" }}>Edit</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PricingSection({ title, count, children }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <div style={{ borderBottom: "2px solid #1e293b" }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: "#0d1a2a", border: "none", cursor: "pointer", textAlign: "left" }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#94a3b8", letterSpacing: "0.05em" }}>{title}</span>
+          <span style={{ fontSize: 11, color: "#475569", background: "#1e293b", borderRadius: 10, padding: "1px 7px" }}>{count}</span>
+        </div>
+        <span style={{ fontSize: 14, color: "#475569", transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>▼</span>
+      </button>
+      {open && <div>{children}</div>}
+    </div>
+  );
+}
+
+// ─── BUDGET ROW COMPONENT (module-level) ─────────────────────────────────────
+function BPRow({ rowKey, row, qtyEditable = false, qtyPath = null, showNoTape = false,
+                 budgetPricing, bp, updateBP, openBudgetEdit, noTapeFootage, inputStyle }) {
+  const isManual = (budgetPricing?.[rowKey]?.manualTotal !== false && budgetPricing?.[rowKey]?.manualTotal !== undefined) ||
+    (bp[rowKey]?.manualTotal !== false && bp[rowKey]?.manualTotal !== undefined);
+  const manualQty = budgetPricing?.[rowKey]?.manualQty;
+  const btnBase = { background: "none", border: "none", cursor: "pointer", textAlign: "right", padding: "12px 8px", margin: 0, width: "100%", display: "block", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" };
+  return (
+    <div style={{ borderBottom: "1px solid #1e293b" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 72px 72px 84px", alignItems: "center", padding: "0 6px 0 12px", gap: 2 }}>
+        <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600, padding: "10px 0" }}>
+          {row.label}
+          {(isManual || manualQty) && <span style={{ fontSize: 10, color: "#f59e0b", marginLeft: 6 }}>⚠️</span>}
+        </div>
+        {qtyEditable ? (
+          <button
+            style={{ ...btnBase, fontSize: 13, color: manualQty ? "#f59e0b" : "#94a3b8" }}
+            onClick={() => openBudgetEdit(`Qty: ${row.label}`, row.qty, v => { updateBP(`${rowKey}.${qtyPath}`, v); updateBP(`${rowKey}.manualQty`, true); updateBP(`${rowKey}.manualTotal`, false); })}
+          >
+            {typeof row.qty === "number" ? (Number.isInteger(row.qty) ? row.qty : row.qty.toFixed(2)) : row.qty}
+            <span style={{ fontSize: 11, color: "#475569", marginLeft: 3 }}>✏</span>
+          </button>
+        ) : (
+          <div style={{ fontSize: 13, color: "#94a3b8", textAlign: "right", padding: "10px 6px" }}>
+            {typeof row.qty === "number" ? (Number.isInteger(row.qty) ? row.qty : row.qty.toFixed(2)) : row.qty}
+          </div>
+        )}
+        <button
+          style={{ ...btnBase, fontSize: 13, color: "#64748b" }}
+          onClick={() => { const rateKey = rowKey === "management" ? "costPerTrip" : "rate"; openBudgetEdit(`Rate: ${row.label}`, row.rate, v => { updateBP(`${rowKey}.${rateKey}`, v); updateBP(`${rowKey}.manualTotal`, false); }); }}
+        >
+          ${row.rate}<span style={{ fontSize: 11, color: "#475569", marginLeft: 3 }}>✏</span>
+        </button>
+        <button
+          style={{ ...btnBase, fontSize: 13, fontWeight: 700, color: isManual ? "#f59e0b" : "#34d399" }}
+          onClick={() => openBudgetEdit(`Override Total: ${row.label}`, row.total?.toFixed(2) ?? "0", v => updateBP(`${rowKey}.manualTotal`, v))}
+        >
+          ${(row.total || 0).toFixed(0)}<span style={{ fontSize: 11, color: "#475569", marginLeft: 3 }}>✏</span>
+        </button>
+      </div>
+      {showNoTape && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 12px 8px", borderTop: "1px solid #0f172a" }}>
+          <span style={{ fontSize: 11, color: "#475569", flex: 1 }}>No-tape footage:</span>
+          <input
+            type="number"
+            min="0"
+            style={{ ...inputStyle, marginBottom: 0, width: 90, padding: "4px 8px", fontSize: 12, textAlign: "right" }}
+            value={noTapeFootage || 0}
+            onChange={(e) => updateBP("taping.noTapeFootage", parseFloat(e.target.value) || 0)}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function TakeoffApp() {
   // Load from localStorage on first render
@@ -207,10 +391,21 @@ export default function TakeoffApp() {
   const [newCustomMaterial, setNewCustomMaterial] = useState("");
   const [newCustomAccessory, setNewCustomAccessory] = useState("");
   const [toast, setToast] = useState("");
-  const [sheetPrices, setSheetPrices] = useState(() => loadSheetPrices());
+  const [sqftPrices, setSqftPrices] = useState(() => loadSqftPrices());
+  const [accPrices, setAccPrices] = useState(() => loadAccPrices());
   const [adminPriceInput, setAdminPriceInput] = useState("");
   const [adminPriceError, setAdminPriceError] = useState(false);
   const [isPricingUnlocked, setIsPricingUnlocked] = useState(false);
+  const [importMsg, setImportMsg] = useState("");
+  const importFileRef = useRef(null);
+  const [materialCostExpanded, setMaterialCostExpanded] = useState(false);
+  const [accessoryCostExpanded, setAccessoryCostExpanded] = useState(false);
+  const [budgetEditModal, setBudgetEditModal] = useState(null);
+  const openBudgetEdit = (title, currentVal, onSave) =>
+    setBudgetEditModal({ type: "edit", title, value: String(currentVal), onSave });
+  const openBudgetConfirm = (msg, onConfirm) =>
+    setBudgetEditModal({ type: "confirm", msg, onConfirm });
+  const importOrderRef = useRef(null);
   const [bulkPopup, setBulkPopup] = useState(null); // { x, y, mat, len, count }
   const bulkInterval = useRef(null);
   const accScrollRef = useRef(null);
@@ -377,6 +572,53 @@ export default function TakeoffApp() {
     );
   };
 
+  // Update a single line-item within a bead product's lines array
+  const updateBeadLine = (product, lineIdx, field, value) => {
+    setJobs((prev) =>
+      prev.map((job) =>
+        job.id !== currentJobId ? job : {
+          ...job,
+          accessories: job.accessories.map((a) => {
+            if (a.product !== product) return a;
+            const lines = a.lines ? [...a.lines] : [{ qty: 1, length: 10 }];
+            lines[lineIdx] = { ...lines[lineIdx], [field]: value };
+            return { ...a, lines };
+          }),
+        }
+      )
+    );
+  };
+
+  const addBeadLine = (product) => {
+    setJobs((prev) =>
+      prev.map((job) =>
+        job.id !== currentJobId ? job : {
+          ...job,
+          accessories: job.accessories.map((a) => {
+            if (a.product !== product) return a;
+            const lines = a.lines ? [...a.lines] : [];
+            return { ...a, lines: [...lines, { qty: 1, length: 10 }] };
+          }),
+        }
+      )
+    );
+  };
+
+  const removeBeadLine = (product, lineIdx) => {
+    setJobs((prev) =>
+      prev.map((job) =>
+        job.id !== currentJobId ? job : {
+          ...job,
+          accessories: job.accessories.map((a) => {
+            if (a.product !== product) return a;
+            const lines = (a.lines || []).filter((_, i) => i !== lineIdx);
+            return { ...a, lines };
+          }),
+        }
+      )
+    );
+  };
+
   const [showJobNumberWarning, setShowJobNumberWarning] = useState(false);
 
   const handleBudgetUnlock = () => {
@@ -494,44 +736,102 @@ export default function TakeoffApp() {
     setTimeout(() => setToast(""), 2500);
   };
 
-  const exportToCSV = async () => {
+  const exportToCSV = async (withPricing = false) => {
     if (!currentJob) return;
     const mats = selectedMaterials.length > 0 ? selectedMaterials : MATERIALS;
     let csv = currentJob.jobNumber
       ? `"Job #: ${currentJob.jobNumber}"\n"Order: ${currentJob.name}"\n\n`
       : `"Order: ${currentJob.name}"\n\n`;
 
+    if (!withPricing) {
+      csv += `"INSTRUCTIONS: Fill in the UNIT PRICE ($/SQ FT) column for each material row, then save and import back using IMPORT NEW PRICING."\n\n`;
+    }
+
     currentJob.areas.forEach((area) => {
       if (areaTotal(area) === 0) return;
       csv += `"AREA: ${area.name}"\n`;
-      csv += `"Material",${LENGTHS.map(l => `"${l}"`).join(",")},\"SHEET TOTAL\",\"SQ FT\"\n`;
+      if (withPricing) {
+        csv += `"Material",${LENGTHS.map(l => `"${l}"`).join(",")},\"SHEET TOTAL\",\"SQ FT\",\"$/SQ FT\",\"TOTAL COST\"\n`;
+      } else {
+        csv += `"Material",${LENGTHS.map(l => `"${l}"`).join(",")},\"SHEET TOTAL\",\"SQ FT\",\"$/SQ FT  ← FILL IN\",\"TOTAL COST\"\n`;
+      }
       mats.forEach((mat) => {
         const rowData = LENGTHS.map((len) => area.data[mat]?.[len] || 0);
         const sheetTotal = rowData.reduce((a, b) => a + b, 0);
         if (sheetTotal === 0) return;
         const sqft = LENGTHS.reduce((s, len, i) => s + rowData[i] * sheetWidth(mat) * lenFeet(len), 0);
-        csv += `"${mat}",${rowData.join(",")},${sheetTotal},${Math.round(sqft)}\n`;
+        if (withPricing) {
+          const pricePsf = getSqftPrice(sqftPrices, mat) ?? 0;
+          const totalCost = Math.round(sqft) * pricePsf;
+          csv += `"${mat}",${rowData.join(",")},${sheetTotal},${Math.round(sqft)},${pricePsf.toFixed(4)},${totalCost.toFixed(2)}\n`;
+        } else {
+          csv += `"${mat}",${rowData.join(",")},${sheetTotal},${Math.round(sqft)},,\n`;
+        }
       });
       const totalSheets = areaTotal(area);
       const totalSqFt = areaSqFt(area, mats);
-      csv += `"TOTALS",,,,${totalSheets},${totalSqFt}\n\n`;
+      if (withPricing) {
+        const areaCost = mats.reduce((s, mat) => {
+          const pricePsf = getSqftPrice(sqftPrices, mat) ?? 0;
+          const sqft = LENGTHS.reduce((ss, len) => ss + (area.data[mat]?.[len] || 0) * sheetWidth(mat) * lenFeet(len), 0);
+          return s + sqft * pricePsf;
+        }, 0);
+        csv += `"TOTALS",,,,${totalSheets},${totalSqFt},,${areaCost.toFixed(2)}\n\n`;
+      } else {
+        csv += `"TOTALS",,,,${totalSheets},${totalSqFt},,\n\n`;
+      }
     });
 
     const grandSheets = currentJob.areas.reduce((s, a) => s + areaTotal(a), 0);
     const grandSqFt = currentJob.areas.reduce((s, a) => s + areaSqFt(a, mats), 0);
     csv += `"JOB TOTAL SHEETS",${grandSheets}\n`;
-    csv += `"JOB TOTAL SQ FT",${grandSqFt}\n\n`;
+    csv += `"JOB TOTAL SQ FT",${grandSqFt}\n`;
+    if (withPricing) {
+      const grandCost = mats.reduce((s, mat) => {
+        const pricePsf = getSqftPrice(sqftPrices, mat) ?? 0;
+        return s + currentJob.areas.reduce((as, area) => {
+          const sqft = LENGTHS.reduce((ss, len) => ss + (area.data[mat]?.[len] || 0) * sheetWidth(mat) * lenFeet(len), 0);
+          return as + sqft * pricePsf;
+        }, 0);
+      }, 0);
+      csv += `"JOB TOTAL MATERIAL COST",$${grandCost.toFixed(2)}\n`;
+    }
+    csv += "\n";
 
-    const usedAccessories = (currentJob.accessories || []).filter(a => a.qty > 0);
+    const usedAccessories = (currentJob.accessories || []).filter(a => a.qty > 0 || (a.lines && a.lines.some(l => l.qty > 0)));
     if (usedAccessories.length > 0) {
       csv += `"ACCESSORIES & SUPPLIES"\n`;
-      csv += `"Product","Qty","Placement"\n`;
-      usedAccessories.forEach(a => {
-        csv += `"${a.product}",${a.qty},"${a.placement || ''}"\n`;
-      });
+      if (withPricing) {
+        csv += `"Product","Qty","Placement","Unit Price","Total"\n`;
+        usedAccessories.forEach(a => {
+          const code = a.product.split(" ")[0];
+          const priceData = accPrices?.[code] ?? DEFAULT_ACC_PRICES[code];
+          if (isBeadProduct(a.product) && a.lines?.length > 0) {
+            a.lines.filter(l => l.qty > 0).forEach(l => {
+              const ft = (l.qty || 0) * (l.length || 0);
+              const cost = ft * (priceData?.price ?? 0);
+              csv += `"${a.product} (${l.qty}pc × ${l.length}ft)",${ft},"${a.placement || ""}",${(priceData?.price ?? 0).toFixed(4)},${cost.toFixed(2)}\n`;
+            });
+          } else {
+            const cost = (a.qty || 0) * (priceData?.price ?? 0);
+            csv += `"${a.product}",${a.qty},"${a.placement || ""}",${(priceData?.price ?? 0).toFixed(4)},${cost.toFixed(2)}\n`;
+          }
+        });
+      } else {
+        csv += `"Product","Qty","Placement","Unit Price  ← FILL IN","Total"\n`;
+        usedAccessories.forEach(a => {
+          if (isBeadProduct(a.product) && a.lines?.length > 0) {
+            a.lines.filter(l => l.qty > 0).forEach(l => {
+              csv += `"${a.product} (${l.qty}pc × ${l.length}ft)",${(l.qty||0)*(l.length||0)},"${a.placement || ""}","",""\n`;
+            });
+          } else {
+            csv += `"${a.product}",${a.qty},"${a.placement || ""}","",""\n`;
+          }
+        });
+      }
     }
 
-    const filename = `${currentJob.name.replace(/\s+/g, "_")}_takeoff.csv`;
+    const filename = `${currentJob.name.replace(/\s+/g, "_")}_${withPricing ? "order_pricing" : "order_for_pricing"}.csv`;
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
 
     // Try Web Share API first (best on Android)
@@ -561,20 +861,57 @@ export default function TakeoffApp() {
       a.style.display = "none";
       document.body.appendChild(a);
       a.click();
-      setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, 1000);
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
       showToast("✅ Downloading to your device!");
     } catch (e) {
-      // Last resort: open as data URI in new tab
       const reader = new FileReader();
-      reader.onload = () => {
-        window.open(reader.result, "_blank");
-        showToast("✅ Opened — use Share to save!");
-      };
+      reader.onload = () => { window.open(reader.result, "_blank"); showToast("✅ Opened — use Share to save!"); };
       reader.readAsDataURL(blob);
     }
+  };
+
+  const importOrderPricing = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const lines = ev.target.result.split("\n");
+        const newSqft = { ...sqftPrices };
+        const newAcc = JSON.parse(JSON.stringify(accPrices));
+        let count = 0;
+        lines.forEach(line => {
+          if (!line.trim()) return;
+          const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, "").replace(/""/g, '"'));
+          // Board material rows: col[0]=material code/label, col[6]=$/sqft (withPricing export has 7 cols)
+          // Try to match material code from col[0]
+          const maybeMatLabel = cols[0];
+          const matCode = MATERIALS.find(m => maybeMatLabel.startsWith(m.split(" ")[0]))?.split(" ")[0];
+          if (matCode && cols[6] && !isNaN(parseFloat(cols[6]))) {
+            newSqft[matCode] = parseFloat(cols[6]);
+            count++;
+            return;
+          }
+          // Accessory rows: col[0]=product, col[3]=unit price
+          const accCode = Object.keys(DEFAULT_ACC_PRICES).find(code => maybeMatLabel.startsWith(code));
+          if (accCode && cols[3] && !isNaN(parseFloat(cols[3]))) {
+            newAcc[accCode] = { ...newAcc[accCode], price: parseFloat(cols[3]) };
+            count++;
+          }
+        });
+        // Save as job-level overrides (not global) — store in job's budgetPricing
+        setJobs(prev => prev.map(j => j.id !== currentJobId ? j : {
+          ...j,
+          jobSqftPrices: newSqft,
+          jobAccPrices: newAcc,
+        }));
+        showToast(`✅ ${count} prices updated for this job`);
+      } catch {
+        showToast("❌ Import failed — check file format");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
   };
 
   const areaTotal = (area) => {
@@ -701,6 +1038,9 @@ export default function TakeoffApp() {
       </div>
     );
   }
+
+
+
 
   if (screen === "home") {
     const filteredJobs = jobs.filter(job => {
@@ -862,7 +1202,6 @@ export default function TakeoffApp() {
               )}
             </div>
             <input
-              autoFocus
               style={styles.input}
               placeholder="Job name"
               value={newJobName}
@@ -950,7 +1289,19 @@ export default function TakeoffApp() {
             <div style={{ ...styles.headerTitle, fontSize: isLandscape ? 14 : 16 }}>{currentJob?.name}</div>
             {currentJob?.jobNumber ? <div style={{ fontSize: 11, color: "#64748b" }}>#{currentJob.jobNumber}</div> : null}
           </div>
-          <button style={styles.exportBtn} onClick={exportToCSV}>Export</button>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
+            <div style={{ display: "flex", gap: 4 }}>
+              <button style={{ fontSize: 10, fontWeight: 700, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", whiteSpace: "nowrap", background: "#0e7490", color: "#fff" }} onClick={() => exportToCSV(false)}>EXPORT W/OUT PRICING</button>
+              <button style={{ fontSize: 10, fontWeight: 700, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", whiteSpace: "nowrap", background: "#2563eb", color: "#fff" }} onClick={() => exportToCSV(true)}>EXPORT W/ PRICING</button>
+            </div>
+            <div style={{ display: "flex", gap: 4, justifyContent: "flex-end", width: "100%" }}>
+              <button
+                style={{ fontSize: 10, fontWeight: 700, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", whiteSpace: "nowrap", background: "#16a34a", color: "#fff", width: "100%" }}
+                onClick={() => importOrderRef.current?.click()}
+              >⬆ IMPORT NEW PRICING</button>
+              <input ref={importOrderRef} type="file" accept=".csv" style={{ display: "none" }} onChange={importOrderPricing} />
+            </div>
+          </div>
         </div>
         <div style={{ ...styles.body, display: isLandscape ? "grid" : "block", gridTemplateColumns: isLandscape ? "1fr 1fr" : undefined, gap: isLandscape ? "0 24px" : undefined }}>
           <div>
@@ -1029,7 +1380,7 @@ export default function TakeoffApp() {
             <button style={{ ...styles.accessoriesNav, borderColor: "#34d399", marginTop: 8 }} onClick={() => setScreen("budget")}>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 15 }}>💰 Budget & Pricing</div>
-                <div style={{ color: "#64748b", fontSize: 12, marginTop: 2 }}>Labour rates, drive, overhead & profit</div>
+                <div style={{ color: "#64748b", fontSize: 12, marginTop: 2 }}>Material Pricing, Labor rates, overhead & profit</div>
               </div>
               <span style={{ fontSize: 20 }}>›</span>
             </button>
@@ -1037,7 +1388,7 @@ export default function TakeoffApp() {
 
           <div style={{ marginTop: 16 }}>
             <div style={styles.sectionRow}>
-              <span style={styles.sectionLabel}>ACTIVE MATERIALS ({selectedMaterials.length})</span>
+              <span style={styles.sectionLabel}>ACTIVE BOARD TYPES ({selectedMaterials.length})</span>
               <button style={styles.smallBtn} onClick={() => setShowMaterialPicker(true)}>Edit</button>
             </div>
             {selectedMaterials.map((m) => (
@@ -1075,7 +1426,7 @@ export default function TakeoffApp() {
 
         {showMaterialPicker && (
           <Modal title="Select & Order Materials" onClose={() => setShowMaterialPicker(false)} tall>
-            <p style={{ color: "#aaa", fontSize: 12, marginBottom: 8 }}>Tap to toggle · Drag ☰ to reorder active materials.</p>
+            <p style={{ color: "#aaa", fontSize: 12, marginBottom: 8 }}>Tap to toggle · Drag ☰ to reorder active board types.</p>
             <div style={{ overflowY: "auto", flex: 1 }}>
               {/* Active materials — draggable */}
               {selectedMaterials.map((m, i) => (
@@ -1235,6 +1586,11 @@ export default function TakeoffApp() {
   if (screen === "budget") {
     const bp = currentJob?.budgetPricing || initBudgetPricing();
     const totalSqFt = currentJob?.areas.reduce((s, a) => s + areaSqFt(a, selectedMaterials), 0) || 0;
+    const jobTotalSqFt = totalSqFt;
+
+    // Use job-level imported prices if available, otherwise fall back to global
+    const effectiveSqftPrices = currentJob?.jobSqftPrices ?? sqftPrices;
+    const effectiveAccPrices = currentJob?.jobAccPrices ?? accPrices;
 
     const boardingFootage = totalSqFt;
     const tapingFootage = Math.max(0, boardingFootage - (bp.taping.noTapeFootage || 0));
@@ -1303,7 +1659,7 @@ export default function TakeoffApp() {
     const customLabourRows = (bp.customLabour || []);
     const customLabourTotal = customLabourRows.reduce((s, r) => s + (r.manualTotal !== false ? r.manualTotal : r.qty * r.rate), 0);
     const subTotal = Object.values(rows).reduce((s, r) => s + (r.total || 0), 0) + customLabourTotal;
-    // Material cost: sum of (sheet qty × price per sheet) across all areas/materials/lengths
+    // Material cost: sum of (sheet sqft × price/sqft) across all areas/materials/lengths
     const calcMaterialCost = () => {
       let total = 0;
       const mats = selectedMaterials.length > 0 ? selectedMaterials : MATERIALS;
@@ -1312,8 +1668,8 @@ export default function TakeoffApp() {
           LENGTHS.forEach(len => {
             const qty = area?.data[mat]?.[len] || 0;
             if (qty > 0) {
-              const price = getSheetPrice(sheetPrices, mat, len);
-              if (price !== null) total += qty * price;
+              const pricePsf = getSqftPrice(effectiveSqftPrices, mat);
+              if (pricePsf !== null) total += qty * sheetSqft(mat, len) * pricePsf;
             }
           });
         });
@@ -1322,78 +1678,120 @@ export default function TakeoffApp() {
     };
     const materialCost = bp.materialCost?.manualTotal !== undefined ? bp.materialCost.manualTotal : calcMaterialCost();
     const materialCostIsManual = bp.materialCost?.manualTotal !== undefined;
+
+    // Cartage: $0.065/sqft, minimum $250 if order < 4000 sqft
+    const calcCartage = () => {
+      const raw = boardingFootage * 0.065;
+      return boardingFootage > 0 ? Math.max(250, raw) : 0;
+    };
+    const cartage = bp.cartage?.manualTotal !== undefined ? bp.cartage.manualTotal : calcCartage();
+    const cartageIsManual = bp.cartage?.manualTotal !== undefined;
+    const cartageIsMinimum = !cartageIsManual && boardingFootage > 0 && boardingFootage * 0.065 < 250;
+
+    // Accessory cost: sum all accessories (qty × unit price, or for beads: lines sum × $/ft)
+    const calcAccessoryCost = () => {
+      let total = 0;
+      const accs = currentJob?.accessories || [];
+      accs.forEach(entry => {
+        const code = entry.product.split(" ")[0];
+        const priceData = effectiveAccPrices?.[code] ?? DEFAULT_ACC_PRICES[code];
+        if (!priceData) return;
+        if (isBeadProduct(entry.product)) {
+          // lines: qty × length × $/ft
+          const lines = entry.lines || [];
+          lines.forEach(l => { total += (Number(l.qty) || 0) * (Number(l.length) || 0) * (priceData.price || 0); });
+        } else {
+          total += (entry.qty || 0) * (priceData.price || 0);
+        }
+      });
+      return total;
+    };
+    const accessoryCost = bp.accessoryCost?.manualTotal !== undefined ? bp.accessoryCost.manualTotal : calcAccessoryCost();
+    const accessoryCostIsManual = bp.accessoryCost?.manualTotal !== undefined;
+
+    // Build accessory breakdown for display
+    const accBreakdown = (() => {
+      const accs = currentJob?.accessories || [];
+      const rows = [];
+      accs.forEach(entry => {
+        const code = entry.product.split(" ")[0];
+        const priceData = effectiveAccPrices?.[code] ?? DEFAULT_ACC_PRICES[code];
+        if (!priceData) return;
+        if (isBeadProduct(entry.product)) {
+          const lines = entry.lines || [];
+          lines.forEach((l, i) => {
+            const ft = (Number(l.qty) || 0) * (Number(l.length) || 0);
+            if (ft > 0) rows.push({ label: `${entry.product} (${l.qty}pc × ${l.length}ft)`, qty: ft, unit: "ft", price: priceData.price, total: ft * priceData.price });
+          });
+        } else if (entry.qty > 0) {
+          rows.push({ label: entry.product, qty: entry.qty, unit: priceData.unit || "ea", price: priceData.price, total: entry.qty * priceData.price });
+        }
+      });
+      return rows;
+    })();
+
     const ohAmt = subTotal * (bp.overhead.pct / 100);
     const profitAmt = subTotal * (bp.profit.pct / 100);
-    const totalQuote = materialCost + subTotal + ohAmt + profitAmt;
+    const pstAmt = (materialCost + accessoryCost) * 0.07;
+    const totalQuote = materialCost + accessoryCost + cartage + pstAmt + subTotal + ohAmt + profitAmt;
 
-    const BPRow = ({ rowKey, row, qtyEditable = false, qtyPath = null, showNoTape = false }) => {
-      const isManual = (currentJob?.budgetPricing?.[rowKey]?.manualTotal !== false && currentJob?.budgetPricing?.[rowKey]?.manualTotal !== undefined) ||
-        (bp[rowKey]?.manualTotal !== false && bp[rowKey]?.manualTotal !== undefined && bp[rowKey]?.manualTotal !== false);
-      const manualQty = currentJob?.budgetPricing?.[rowKey]?.manualQty;
-      return (
-        <div style={{ borderBottom: "1px solid #1e293b" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px", alignItems: "center", padding: "8px 12px", gap: 4 }}>
-            <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600 }}>
-              {row.label}
-              {(isManual || manualQty) && <span style={{ fontSize: 10, color: "#f59e0b", marginLeft: 6 }}>⚠️ edited</span>}
-            </div>
-            {/* Qty */}
-            <div
-              style={{ fontSize: 12, color: manualQty ? "#f59e0b" : "#94a3b8", textAlign: "right", cursor: qtyEditable ? "pointer" : "default" }}
-              onClick={() => {
-                if (!qtyEditable) return;
-                const v = prompt(`Edit quantity for ${row.label}:`, String(row.qty));
-                if (v !== null && !isNaN(parseFloat(v))) {
-                  updateBP(`${rowKey}.${qtyPath}`, parseFloat(v));
-                  updateBP(`${rowKey}.manualQty`, true);
-                  updateBP(`${rowKey}.manualTotal`, false);
-                }
-              }}
-            >
-              {typeof row.qty === "number" ? (Number.isInteger(row.qty) ? row.qty : row.qty.toFixed(2)) : row.qty}
-              {qtyEditable && <span style={{ fontSize: 9, color: "#475569", marginLeft: 2 }}>✏️</span>}
-            </div>
-            {/* Rate */}
-            <div
-              style={{ fontSize: 12, color: "#64748b", textAlign: "right", cursor: "pointer" }}
-              onClick={() => {
-                const rateKey = rowKey === "management" ? "costPerTrip" : "rate";
-                const v = prompt(`Edit rate for ${row.label}:`, String(row.rate));
-                if (v !== null && !isNaN(parseFloat(v))) {
-                  updateBP(`${rowKey}.${rateKey}`, parseFloat(v));
-                  updateBP(`${rowKey}.manualTotal`, false);
-                }
-              }}
-            >
-              ${row.rate}<span style={{ fontSize: 9, color: "#475569", marginLeft: 2 }}>✏️</span>
-            </div>
-            {/* Total */}
-            <div
-              style={{ fontSize: 13, fontWeight: 700, color: isManual ? "#f59e0b" : "#34d399", textAlign: "right", cursor: "pointer" }}
-              onClick={() => {
-                const v = prompt(`Override total for ${row.label}:`, String(row.total?.toFixed(2)));
-                if (v !== null && !isNaN(parseFloat(v))) {
-                  updateBP(`${rowKey}.manualTotal`, parseFloat(v));
-                }
-              }}
-            >
-              ${(row.total || 0).toFixed(0)}<span style={{ fontSize: 9, color: "#475569", marginLeft: 2 }}>✏️</span>
-            </div>
-          </div>
-          {showNoTape && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 12px 8px", borderTop: "1px solid #0f172a" }}>
-              <span style={{ fontSize: 11, color: "#475569", flex: 1 }}>No-tape footage:</span>
-              <input
-                type="number"
-                min="0"
-                style={{ ...styles.input, marginBottom: 0, width: 90, padding: "4px 8px", fontSize: 12, textAlign: "right" }}
-                value={bp.taping.noTapeFootage || 0}
-                onChange={(e) => updateBP("taping.noTapeFootage", parseFloat(e.target.value) || 0)}
-              />
-            </div>
-          )}
-        </div>
-      );
+
+
+    const exportBudgetCSV = () => {
+      const jobNum = currentJob?.jobNumber ? `Job #${currentJob.jobNumber} — ` : "";
+      const jobName = currentJob?.name || "Budget";
+      const lines = [];
+      const row = (...cols) => lines.push(cols.map(c => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","));
+
+      row(`${jobNum}${jobName} — Budget Export`);
+      row("");
+      row("MATERIALS");
+      row("Item", "Ft²", "$/Ft²", "Total");
+      const mats = selectedMaterials.length > 0 ? selectedMaterials : MATERIALS;
+      mats.forEach(mat => {
+        let matSqFt = 0, matCost = 0;
+        const pricePsf = getSqftPrice(effectiveSqftPrices, mat);
+        LENGTHS.forEach(len => {
+          (currentJob?.areas || []).forEach(area => {
+            const qty = area?.data[mat]?.[len] || 0;
+            if (qty > 0) { const sf = qty * sheetSqft(mat, len); matSqFt += sf; if (pricePsf !== null) matCost += sf * pricePsf; }
+          });
+        });
+        if (matSqFt > 0) row(mat, matSqFt, pricePsf?.toFixed(4) ?? "", matCost.toFixed(2));
+      });
+      row("Board Material Total", "", "", materialCost.toFixed(2));
+      row("");
+      row("ACCESSORIES");
+      row("Item", "Qty", "Rate", "Total");
+      accBreakdown.forEach(r => row(r.label, r.qty, `$${r.price.toFixed(2)}/${r.unit}`, r.total.toFixed(2)));
+      row("Accessory Total", "", "", accessoryCost.toFixed(2));
+      row("");
+      row("CARTAGE");
+      row("Cartage" + (cartageIsMinimum ? " (minimum charge)" : ""), `${boardingFootage} ft²`, "$0.065/ft²", cartage.toFixed(2));
+      row("");
+      row("PST (7% on boards + accessories)", `$${(materialCost + accessoryCost).toFixed(2)}`, "7%", pstAmt.toFixed(2));
+      row("");
+      row("LABOUR BUDGET");
+      row("Item", "Qty", "Rate", "Total");
+      Object.values(rows).forEach(r => { if (r.total > 0 || r.qty > 0) row(r.label, r.qty, `$${r.rate.toFixed(2)}`, r.total.toFixed(2)); });
+      customLabourRows.forEach(r => {
+        const total = r.manualTotal !== false ? r.manualTotal : r.qty * r.rate;
+        row(r.label, r.qty, `$${r.rate.toFixed(2)}`, total.toFixed(2));
+      });
+      row("Labour Sub Total", "", "", subTotal.toFixed(2));
+      row("");
+      row(`Overhead (${bp.overhead.pct}%)`, "", "", ohAmt.toFixed(2));
+      row(`Profit (${bp.profit.pct}%)`, "", "", profitAmt.toFixed(2));
+      row("");
+      row("TOTAL QUOTE", "", "", totalQuote.toFixed(2));
+
+      const csv = lines.join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const safeName = jobName.replace(/[^a-z0-9]/gi, "_");
+      a.href = url; a.download = `MBDW_Budget_${safeName}.csv`; a.click();
+      URL.revokeObjectURL(url);
     };
 
     return (
@@ -1404,22 +1802,184 @@ export default function TakeoffApp() {
             <div style={{ ...styles.headerTitle, fontSize: 14 }}>💰 Budget & Pricing</div>
             <div style={{ fontSize: 11, color: "#64748b" }}>{currentJob?.name}</div>
           </div>
-          <div style={{ fontSize: 13, fontWeight: 800, color: "#34d399" }}>${totalQuote.toFixed(0)}</div>
+          <button
+            onClick={exportBudgetCSV}
+            style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 7, color: "#60a5fa", fontSize: 11, fontWeight: 700, padding: "5px 10px", cursor: "pointer", whiteSpace: "nowrap" }}
+          >⬇ Export Budget</button>
+          <div style={{ fontSize: 13, fontWeight: 800, color: "#34d399", marginLeft: 8 }}>${totalQuote.toFixed(0)}</div>
         </div>
 
-        <div style={{ flex: 1, overflowY: "auto" }}>
-          {/* Material Cost */}
+        <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
+          {/* Material Cost — collapsible breakdown */}
+          {(() => {
+            // Build per-material breakdown
+            const mats = selectedMaterials.length > 0 ? selectedMaterials : MATERIALS;
+            const breakdown = [];
+            mats.forEach(mat => {
+              let matSqFt = 0, matCost = 0;
+              const pricePsf = getSqftPrice(effectiveSqftPrices, mat);
+              LENGTHS.forEach(len => {
+                (currentJob?.areas || []).forEach(area => {
+                  const qty = area?.data[mat]?.[len] || 0;
+                  if (qty > 0) {
+                    const sf = qty * sheetSqft(mat, len);
+                    matSqFt += sf;
+                    if (pricePsf !== null) matCost += sf * pricePsf;
+                  }
+                });
+              });
+              if (matSqFt > 0) breakdown.push({ mat, matSqFt, matCost, pricePsf });
+            });
+            return (
+              <div style={{ background: "#1a1a2e", borderBottom: materialCostExpanded ? "none" : "1px solid #f59e0b44" }}>
+                {/* Header row — clickable */}
+                <div
+                  style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px", padding: "8px 12px", alignItems: "center", cursor: "pointer", userSelect: "none" }}
+                  onClick={() => setMaterialCostExpanded(x => !x)}
+                >
+                  <div style={{ fontSize: 12, fontWeight: 800, color: "#f59e0b", letterSpacing: 1, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 10, color: "#f59e0b" }}>{materialCostExpanded ? "▾" : "▸"}</span>
+                    BOARD MATERIAL
+                    {materialCostIsManual && <span style={{ fontSize: 10, color: "#f59e0b", marginLeft: 4 }}>⚠️ edited</span>}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>{boardingFootage} ft²</div>
+                  <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>
+                    {materialCostIsManual ? (
+                      <button
+                        onClick={e => { e.stopPropagation(); openBudgetConfirm("Reset material cost back to auto-calculation?", () => updateBP("materialCost.manualTotal", undefined)); }}
+                        style={{ background: "none", border: "1px solid #334155", borderRadius: 4, color: "#64748b", fontSize: 10, padding: "2px 6px", cursor: "pointer" }}
+                      >↺ reset</button>
+                    ) : "auto"}
+                  </div>
+                  <button
+                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, color: "#f59e0b", textAlign: "right", padding: "12px 4px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                    onClick={e => { e.stopPropagation(); openBudgetEdit("Override Material Cost", materialCost.toFixed(2), v => updateBP("materialCost.manualTotal", parseFloat(v))); }}
+                  >${materialCost.toFixed(0)}<span style={{ fontSize: 11, color: "#475569", marginLeft: 3 }}>✏</span></button>
+                </div>
+
+                {/* Breakdown rows */}
+                {materialCostExpanded && (
+                  <div style={{ borderTop: "1px solid #1e3a5f", borderBottom: "1px solid #f59e0b44" }}>
+                    {breakdown.length === 0 ? (
+                      <div style={{ padding: "8px 16px", fontSize: 11, color: "#475569", fontStyle: "italic" }}>No materials entered yet.</div>
+                    ) : (
+                      <>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 60px 80px", padding: "4px 16px", background: "#0d1526" }}>
+                          <div style={{ fontSize: 9, color: "#334155", fontWeight: 700, letterSpacing: 1 }}>MATERIAL</div>
+                          <div style={{ fontSize: 9, color: "#334155", textAlign: "right" }}>FT²</div>
+                          <div style={{ fontSize: 9, color: "#334155", textAlign: "right" }}>$/FT²</div>
+                          <div style={{ fontSize: 9, color: "#334155", textAlign: "right" }}>TOTAL</div>
+                        </div>
+                        {breakdown.map(({ mat, matSqFt, matCost, pricePsf }) => (
+                          <div key={mat} style={{ display: "grid", gridTemplateColumns: "1fr 60px 60px 80px", padding: "5px 16px", borderTop: "1px solid #1e293b", alignItems: "center" }}>
+                            <div style={{ fontSize: 11, color: "#94a3b8" }}>{mat}</div>
+                            <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>{matSqFt}</div>
+                            <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>${pricePsf?.toFixed(4) ?? "—"}</div>
+                            <div style={{ fontSize: 11, color: "#e2e8f0", textAlign: "right", fontWeight: 600 }}>${matCost.toFixed(0)}</div>
+                          </div>
+                        ))}
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", padding: "5px 16px 8px", background: "#0d1526", borderTop: "1px solid #1e3a5f" }}>
+                          <div style={{ fontSize: 10, color: "#475569", fontWeight: 700 }}>BOARD MATERIAL SUBTOTAL</div>
+                          <div style={{ fontSize: 12, color: "#f59e0b", fontWeight: 800, textAlign: "right" }}>${materialCost.toFixed(0)}</div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Accessory Cost — collapsible */}
+          {(() => {
+            return (
+              <div style={{ background: "#1a1a2e", borderBottom: accessoryCostExpanded ? "none" : "1px solid #f59e0b44" }}>
+                <div
+                  style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px", padding: "8px 12px", alignItems: "center", cursor: "pointer", userSelect: "none" }}
+                  onClick={() => setAccessoryCostExpanded(x => !x)}
+                >
+                  <div style={{ fontSize: 12, fontWeight: 800, color: "#f59e0b", letterSpacing: 1, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 10 }}>{accessoryCostExpanded ? "▾" : "▸"}</span>
+                    ACCESSORIES
+                    {accessoryCostIsManual && <span style={{ fontSize: 10, color: "#f59e0b", marginLeft: 4 }}>⚠️ edited</span>}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>{accBreakdown.length} items</div>
+                  <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>
+                    {accessoryCostIsManual ? (
+                      <button
+                        onClick={e => { e.stopPropagation(); openBudgetConfirm("Reset accessory cost back to auto-calculation?", () => updateBP("accessoryCost.manualTotal", undefined)); }}
+                        style={{ background: "none", border: "1px solid #334155", borderRadius: 4, color: "#64748b", fontSize: 10, padding: "2px 6px", cursor: "pointer" }}
+                      >↺ reset</button>
+                    ) : "auto"}
+                  </div>
+                  <button
+                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, color: "#f59e0b", textAlign: "right", padding: "12px 4px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                    onClick={e => { e.stopPropagation(); openBudgetEdit("Override Accessory Cost", accessoryCost.toFixed(2), v => updateBP("accessoryCost.manualTotal", parseFloat(v))); }}
+                  >${accessoryCost.toFixed(0)}<span style={{ fontSize: 11, color: "#475569", marginLeft: 3 }}>✏</span></button>
+                </div>
+                {accessoryCostExpanded && (
+                  <div style={{ borderTop: "1px solid #1e3a5f", borderBottom: "1px solid #f59e0b44" }}>
+                    {accBreakdown.length === 0 ? (
+                      <div style={{ padding: "8px 16px", fontSize: 11, color: "#475569", fontStyle: "italic" }}>No accessories added yet.</div>
+                    ) : (
+                      <>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 50px 60px 80px", padding: "4px 16px", background: "#0d1526" }}>
+                          <div style={{ fontSize: 9, color: "#334155", fontWeight: 700, letterSpacing: 1 }}>ITEM</div>
+                          <div style={{ fontSize: 9, color: "#334155", textAlign: "right" }}>QTY</div>
+                          <div style={{ fontSize: 9, color: "#334155", textAlign: "right" }}>RATE</div>
+                          <div style={{ fontSize: 9, color: "#334155", textAlign: "right" }}>TOTAL</div>
+                        </div>
+                        {accBreakdown.map((row, i) => (
+                          <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 50px 60px 80px", padding: "5px 16px", borderTop: "1px solid #1e293b", alignItems: "center" }}>
+                            <div style={{ fontSize: 11, color: "#94a3b8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{row.label}</div>
+                            <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>{row.qty}</div>
+                            <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>${row.price.toFixed(2)}</div>
+                            <div style={{ fontSize: 11, color: "#e2e8f0", textAlign: "right", fontWeight: 600 }}>${row.total.toFixed(0)}</div>
+                          </div>
+                        ))}
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", padding: "5px 16px 8px", background: "#0d1526", borderTop: "1px solid #1e3a5f" }}>
+                          <div style={{ fontSize: 10, color: "#475569", fontWeight: 700 }}>ACCESSORY SUBTOTAL</div>
+                          <div style={{ fontSize: 12, color: "#f59e0b", fontWeight: 800, textAlign: "right" }}>${accessoryCost.toFixed(0)}</div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Cartage */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px", padding: "8px 12px", background: "#1a1a2e", borderBottom: "1px solid #f59e0b44", alignItems: "center" }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#f59e0b", letterSpacing: 1 }}>
+              CARTAGE
+              {cartageIsManual && <span style={{ fontSize: 10, color: "#f59e0b", marginLeft: 6 }}>⚠️ edited</span>}
+              {cartageIsMinimum && !cartageIsManual && <span style={{ fontSize: 10, color: "#94a3b8", marginLeft: 6 }}>min charge</span>}
+            </div>
+            <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>{boardingFootage > 0 ? `${boardingFootage} ft²` : "—"}</div>
+            <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>
+              {cartageIsManual ? (
+                <button
+                  onClick={() => { openBudgetConfirm("Reset cartage back to auto-calculation? ($0.065/ft² · min $250)", () => updateBP("cartage.manualTotal", undefined)); }}
+                  style={{ background: "none", border: "1px solid #334155", borderRadius: 4, color: "#64748b", fontSize: 10, padding: "2px 6px", cursor: "pointer" }}
+                >↺ reset</button>
+              ) : "$0.065/ft²"}
+            </div>
+            <button
+              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, color: "#f59e0b", textAlign: "right", padding: "12px 4px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+              onClick={() => openBudgetEdit("Override Cartage", cartage.toFixed(2), v => updateBP("cartage.manualTotal", parseFloat(v)))}
+            >${cartage.toFixed(0)}<span style={{ fontSize: 11, color: "#475569", marginLeft: 3 }}>✏</span></button>
+          </div>
+
+          {/* PST — 7% on board material + accessories (excludes cartage) */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px", padding: "8px 12px", background: "#1a1a2e", borderBottom: "2px solid #f59e0b", alignItems: "center" }}>
             <div style={{ fontSize: 12, fontWeight: 800, color: "#f59e0b", letterSpacing: 1 }}>
-              MATERIAL COST
-              {materialCostIsManual && <span style={{ fontSize: 10, color: "#f59e0b", marginLeft: 6 }}>⚠️ edited</span>}
+              PST
+              <span style={{ fontSize: 10, color: "#64748b", fontWeight: 400, marginLeft: 6 }}>boards + acc</span>
             </div>
-            <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>{boardingFootage} ft²</div>
-            <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>per sheet</div>
-            <div
-              style={{ fontSize: 13, fontWeight: 800, color: "#f59e0b", textAlign: "right", cursor: "pointer" }}
-              onClick={() => { const v = prompt("Override material cost:", String(materialCost.toFixed(2))); if (v !== null && !isNaN(parseFloat(v))) updateBP("materialCost.manualTotal", parseFloat(v)); }}
-            >${materialCost.toFixed(0)}<span style={{ fontSize: 9, color: "#475569", marginLeft: 2 }}>✏️</span></div>
+            <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>${(materialCost + accessoryCost).toFixed(0)}</div>
+            <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>7%</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#f59e0b", textAlign: "right" }}>${pstAmt.toFixed(0)}</div>
           </div>
 
           {/* Column headers */}
@@ -1430,11 +1990,11 @@ export default function TakeoffApp() {
             <div style={{ fontSize: 10, color: "#475569", textAlign: "right" }}>TOTAL</div>
           </div>
 
-          <BPRow rowKey="resBar" row={rows.resBar} qtyEditable qtyPath="qty" />
-          <BPRow rowKey="boarding" row={rows.boarding} />
-          <BPRow rowKey="scrap" row={rows.scrap} />
-          <BPRow rowKey="beading" row={rows.beading} qtyEditable qtyPath="qty" />
-          <BPRow rowKey="taping" row={rows.taping} showNoTape />
+          <BPRow rowKey="resBar" row={rows.resBar} qtyEditable qtyPath="qty" budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
+          <BPRow rowKey="boarding" row={rows.boarding} budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
+          <BPRow rowKey="scrap" row={rows.scrap} budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
+          <BPRow rowKey="beading" row={rows.beading} qtyEditable qtyPath="qty" budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
+          <BPRow rowKey="taping" row={rows.taping} showNoTape budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
 
           {/* Custom labour rows */}
           {customLabourRows.map((row) => {
@@ -1448,18 +2008,18 @@ export default function TakeoffApp() {
                     value={row.label}
                     onChange={(e) => updateCustomLabour(row.id, "label", e.target.value)}
                   />
-                  <div
-                    style={{ fontSize: 12, color: "#94a3b8", textAlign: "right", cursor: "pointer" }}
-                    onClick={() => { const v = prompt(`Qty for ${row.label}:`, String(row.qty)); if (v !== null && !isNaN(parseFloat(v))) { updateCustomLabour(row.id, "qty", parseFloat(v)); updateCustomLabour(row.id, "manualTotal", false); } }}
-                  >{row.qty}<span style={{ fontSize: 9, color: "#475569", marginLeft: 2 }}>✏️</span></div>
-                  <div
-                    style={{ fontSize: 12, color: "#64748b", textAlign: "right", cursor: "pointer" }}
-                    onClick={() => { const v = prompt(`Rate for ${row.label}:`, String(row.rate)); if (v !== null && !isNaN(parseFloat(v))) { updateCustomLabour(row.id, "rate", parseFloat(v)); updateCustomLabour(row.id, "manualTotal", false); } }}
-                  >${row.rate}<span style={{ fontSize: 9, color: "#475569", marginLeft: 2 }}>✏️</span></div>
-                  <div
-                    style={{ fontSize: 13, fontWeight: 700, color: isManual ? "#f59e0b" : "#34d399", textAlign: "right", cursor: "pointer" }}
-                    onClick={() => { const v = prompt(`Override total for ${row.label}:`, String(total.toFixed(2))); if (v !== null && !isNaN(parseFloat(v))) updateCustomLabour(row.id, "manualTotal", parseFloat(v)); }}
-                  >${total.toFixed(0)}{isManual && <span style={{ fontSize: 9, color: "#f59e0b", marginLeft: 2 }}>⚠️</span>}</div>
+                  <button
+                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#94a3b8", textAlign: "right", padding: "12px 8px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                    onClick={() => openBudgetEdit(`Qty: ${row.label}`, row.qty, v => { updateCustomLabour(row.id, "qty", v); updateCustomLabour(row.id, "manualTotal", false); })}
+                  >{row.qty}<span style={{ fontSize: 11, color: "#475569", marginLeft: 3 }}>✏</span></button>
+                  <button
+                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#64748b", textAlign: "right", padding: "12px 8px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                    onClick={() => openBudgetEdit(`Rate: ${row.label}`, row.rate, v => { updateCustomLabour(row.id, "rate", v); updateCustomLabour(row.id, "manualTotal", false); })}
+                  >${row.rate}<span style={{ fontSize: 11, color: "#475569", marginLeft: 3 }}>✏</span></button>
+                  <button
+                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, color: isManual ? "#f59e0b" : "#34d399", textAlign: "right", padding: "12px 8px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                    onClick={() => openBudgetEdit(`Override Total: ${row.label}`, total.toFixed(2), v => updateCustomLabour(row.id, "manualTotal", v))}
+                  >${total.toFixed(0)}{isManual && <span style={{ fontSize: 9, color: "#f59e0b", marginLeft: 2 }}>⚠️</span>}</button>
                   <button
                     style={{ background: "none", border: "none", color: "#ef4444", fontSize: 16, cursor: "pointer", padding: 0, textAlign: "center" }}
                     onClick={() => deleteCustomLabour(row.id)}
@@ -1477,11 +2037,11 @@ export default function TakeoffApp() {
             >＋ Add Labour Line</button>
           </div>
 
-          <BPRow rowKey="boardingDrive" row={rows.boardingDrive} />
-          <BPRow rowKey="tapingDrive" row={rows.tapingDrive} />
-          <BPRow rowKey="management" row={rows.management} qtyEditable qtyPath="trips" />
-          <BPRow rowKey="warranty" row={rows.warranty} qtyEditable qtyPath="qty" />
-          <BPRow rowKey="scaffold" row={rows.scaffold} qtyEditable qtyPath="qty" />
+          <BPRow rowKey="boardingDrive" row={rows.boardingDrive} budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
+          <BPRow rowKey="tapingDrive" row={rows.tapingDrive} budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
+          <BPRow rowKey="management" row={rows.management} qtyEditable qtyPath="trips" budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
+          <BPRow rowKey="warranty" row={rows.warranty} qtyEditable qtyPath="qty" budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
+          <BPRow rowKey="scaffold" row={rows.scaffold} qtyEditable qtyPath="qty" budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
 
           {/* SUB TOTAL */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px", padding: "10px 12px", background: "#1e293b", borderTop: "2px solid #334155", borderBottom: "1px solid #334155" }}>
@@ -1490,29 +2050,27 @@ export default function TakeoffApp() {
           </div>
 
           {/* OH */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px", padding: "8px 12px", borderBottom: "1px solid #1e293b", alignItems: "center" }}>
-            <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600 }}>Overhead</div>
-            <div />
-            <div
-              style={{ fontSize: 12, color: "#64748b", textAlign: "right", cursor: "pointer" }}
-              onClick={() => { const v = prompt("Edit OH %:", String(bp.overhead.pct)); if (v !== null && !isNaN(parseFloat(v))) updateBP("overhead.pct", parseFloat(v)); }}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 72px 84px", padding: "0 6px 0 12px", borderBottom: "1px solid #1e293b", alignItems: "center" }}>
+            <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600, padding: "10px 0" }}>Overhead</div>
+            <button
+              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#64748b", textAlign: "right", padding: "12px 8px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+              onClick={() => openBudgetEdit("Overhead %", bp.overhead.pct, v => updateBP("overhead.pct", v))}
             >
-              {bp.overhead.pct}%<span style={{ fontSize: 9, color: "#475569", marginLeft: 2 }}>✏️</span>
-            </div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#34d399", textAlign: "right" }}>${ohAmt.toFixed(0)}</div>
+              {bp.overhead.pct}%<span style={{ fontSize: 11, color: "#475569", marginLeft: 3 }}>✏</span>
+            </button>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#34d399", textAlign: "right", padding: "10px 6px" }}>${ohAmt.toFixed(0)}</div>
           </div>
 
           {/* Profit */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px", padding: "8px 12px", borderBottom: "2px solid #334155", alignItems: "center" }}>
-            <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600 }}>Profit</div>
-            <div />
-            <div
-              style={{ fontSize: 12, color: "#64748b", textAlign: "right", cursor: "pointer" }}
-              onClick={() => { const v = prompt("Edit Profit %:", String(bp.profit.pct)); if (v !== null && !isNaN(parseFloat(v))) updateBP("profit.pct", parseFloat(v)); }}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 72px 84px", padding: "0 6px 0 12px", borderBottom: "2px solid #334155", alignItems: "center" }}>
+            <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600, padding: "10px 0" }}>Profit</div>
+            <button
+              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#64748b", textAlign: "right", padding: "12px 8px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+              onClick={() => openBudgetEdit("Profit %", bp.profit.pct, v => updateBP("profit.pct", v))}
             >
-              {bp.profit.pct}%<span style={{ fontSize: 9, color: "#475569", marginLeft: 2 }}>✏️</span>
-            </div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#34d399", textAlign: "right" }}>${profitAmt.toFixed(0)}</div>
+              {bp.profit.pct}%<span style={{ fontSize: 11, color: "#475569", marginLeft: 3 }}>✏</span>
+            </button>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#34d399", textAlign: "right", padding: "10px 6px" }}>${profitAmt.toFixed(0)}</div>
           </div>
 
           {/* Total Quote */}
@@ -1525,6 +2083,46 @@ export default function TakeoffApp() {
             <div style={{ fontSize: 10, color: "#334155", textAlign: "center" }}>Tap any QTY, RATE, or TOTAL to edit · ⚠️ = manually overridden</div>
           </div>
         </div>
+
+        {/* Inline edit modal overlay */}
+        {budgetEditModal && (() => {
+          const overlayStyle = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center" };
+          const sheetStyle = { background: "#0d1526", borderRadius: "16px 16px 0 0", padding: "24px 20px 36px", width: "100%", maxWidth: 520, boxSizing: "border-box" };
+          if (budgetEditModal.type === "confirm") return (
+            <div style={overlayStyle} onClick={() => setBudgetEditModal(null)}>
+              <div style={sheetStyle} onClick={e => e.stopPropagation()}>
+                <div style={{ fontSize: 15, color: "#e2e8f0", fontWeight: 600, marginBottom: 20, lineHeight: 1.4 }}>{budgetEditModal.msg}</div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => setBudgetEditModal(null)} style={{ flex: 1, padding: "14px 0", borderRadius: 8, border: "1px solid #334155", background: "#1e293b", color: "#94a3b8", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>Cancel</button>
+                  <button onClick={() => { budgetEditModal.onConfirm(); setBudgetEditModal(null); }} style={{ flex: 1, padding: "14px 0", borderRadius: 8, border: "none", background: "#ef4444", color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>Reset</button>
+                </div>
+              </div>
+            </div>
+          );
+          return (
+            <div style={overlayStyle} onClick={() => setBudgetEditModal(null)}>
+              <div style={sheetStyle} onClick={e => e.stopPropagation()}>
+                <div style={{ fontSize: 12, color: "#64748b", fontWeight: 700, letterSpacing: "0.08em", marginBottom: 12 }}>{budgetEditModal.title.toUpperCase()}</div>
+                <input
+                  autoFocus
+                  type="number"
+                  step="any"
+                  value={budgetEditModal.value}
+                  onChange={e => setBudgetEditModal(m => ({ ...m, value: e.target.value }))}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") { const n = parseFloat(budgetEditModal.value); if (!isNaN(n)) { budgetEditModal.onSave(n); setBudgetEditModal(null); } }
+                    if (e.key === "Escape") setBudgetEditModal(null);
+                  }}
+                  style={{ width: "100%", background: "#1e293b", border: "2px solid #2563eb", borderRadius: 10, color: "#e2e8f0", fontSize: 22, padding: "14px 16px", boxSizing: "border-box", outline: "none", marginBottom: 16, textAlign: "right" }}
+                />
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => setBudgetEditModal(null)} style={{ flex: 1, padding: "14px 0", borderRadius: 8, border: "1px solid #334155", background: "#1e293b", color: "#94a3b8", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>Cancel</button>
+                  <button onClick={() => { const n = parseFloat(budgetEditModal.value); if (!isNaN(n)) { budgetEditModal.onSave(n); setBudgetEditModal(null); } }} style={{ flex: 2, padding: "14px 0", borderRadius: 8, border: "none", background: "#2563eb", color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>Save</button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     );
   }
@@ -1559,7 +2157,7 @@ export default function TakeoffApp() {
 
     // For single family jobs with sqft, compute suggested qtys
     const getSuggestedQty = (product) => {
-      if (currentJob?.type !== "single" || jobTotalSqFt === 0) return null;
+      if ((currentJob?.type !== "single" && currentJob?.type !== "budget") || jobTotalSqFt === 0) return null;
       const rate = MUD_SUGGESTIONS[product];
       if (!rate) return null;
       return Math.ceil(jobTotalSqFt / rate);
@@ -1592,6 +2190,66 @@ export default function TakeoffApp() {
               </div>
               {!collapsedSections[category] && products.map((product) => {
                 const entry = accessories.find((a) => a.product === product) || { qty: 0, placement: "" };
+                const isBead = isBeadProduct(product);
+
+                // ── BEAD LINE-ITEM UI ─────────────────────────────────────
+                if (isBead) {
+                  const lines = entry.lines && entry.lines.length > 0 ? entry.lines : [];
+                  const totalFt = lines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.length) || 0), 0);
+                  return (
+                    <div key={product} style={{ borderBottom: "1px solid #1e293b", padding: "10px 14px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "#e2e8f0", flex: 1 }}>{product}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          {totalFt > 0 && <span style={{ fontSize: 11, color: "#60a5fa", fontWeight: 700 }}>{totalFt}′ total</span>}
+                          <select
+                            style={{ ...styles.accSelect, color: entry.placement === "All Areas" ? "#f59e0b" : "#94a3b8" }}
+                            value={entry.placement || "General"}
+                            onChange={(e) => updateAccessory(product, "placement", e.target.value)}
+                          >
+                            <option value="General">General</option>
+                            {areaNames.map((n) => <option key={n} value={n}>{n}</option>)}
+                            <option value="All Areas">⚠️ All Areas</option>
+                          </select>
+                        </div>
+                      </div>
+                      {/* Line items */}
+                      {lines.map((line, idx) => (
+                        <div key={idx} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="qty"
+                            value={line.qty === 0 ? "" : line.qty}
+                            onChange={e => updateBeadLine(product, idx, "qty", parseInt(e.target.value) || 0)}
+                            style={{ width: 52, background: "#1e293b", border: "1px solid #334155", borderRadius: 6, color: "#e2e8f0", fontSize: 13, padding: "6px 8px", textAlign: "center", outline: "none" }}
+                          />
+                          <span style={{ fontSize: 12, color: "#475569" }}>pcs ×</span>
+                          <input
+                            type="number"
+                            min="1"
+                            placeholder="ft"
+                            value={line.length === 0 ? "" : line.length}
+                            onChange={e => updateBeadLine(product, idx, "length", parseInt(e.target.value) || 0)}
+                            style={{ width: 52, background: "#1e293b", border: "1px solid #334155", borderRadius: 6, color: "#e2e8f0", fontSize: 13, padding: "6px 8px", textAlign: "center", outline: "none" }}
+                          />
+                          <span style={{ fontSize: 12, color: "#475569" }}>ft</span>
+                          <span style={{ fontSize: 11, color: "#334155", marginLeft: 2 }}>
+                            {line.qty > 0 && line.length > 0 ? `= ${line.qty * line.length}′` : ""}
+                          </span>
+                          <button onClick={() => removeBeadLine(product, idx)} style={{ marginLeft: "auto", background: "none", border: "none", color: "#475569", fontSize: 16, cursor: "pointer", padding: "0 4px" }}>✕</button>
+                        </div>
+                      ))}
+                      {/* Add line button */}
+                      <button
+                        onClick={() => addBeadLine(product)}
+                        style={{ marginTop: 4, background: "none", border: "1px dashed #334155", borderRadius: 6, color: "#60a5fa", fontSize: 12, padding: "4px 12px", cursor: "pointer", width: "100%" }}
+                      >＋ Add line</button>
+                    </div>
+                  );
+                }
+
+                // ── STANDARD ACC UI ───────────────────────────────────────
                 const isEditingThis = editingQtyProduct === product;
                 const suggestedQty = getSuggestedQty(product);
                 const isAutoSuggested = suggestedQty !== null && entry.qty === 0;
@@ -1620,7 +2278,6 @@ export default function TakeoffApp() {
                           </span>
                         </button>
 
-                        {/* Pencil edit button */}
                         {isEditingThis ? (
                           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                             <input
@@ -1780,42 +2437,127 @@ export default function TakeoffApp() {
       );
     }
 
-    // Price entry helper
-    const updatePrice = (code, length, val) => {
-      const num = val === "" ? null : parseFloat(val);
-      const newPrices = JSON.parse(JSON.stringify(sheetPrices));
-      if (!newPrices[code]) newPrices[code] = {};
-      newPrices[code][length] = (isNaN(num) || val === "") ? null : num;
-      setSheetPrices(newPrices);
-      saveSheetPrices(newPrices);
-    };
-
     const resetPrices = () => {
-      const fresh = JSON.parse(JSON.stringify(DEFAULT_SHEET_PRICES));
-      setSheetPrices(fresh);
-      saveSheetPrices(fresh);
+      const freshSqft = JSON.parse(JSON.stringify(DEFAULT_SQFT_PRICES));
+      const freshAcc = JSON.parse(JSON.stringify(DEFAULT_ACC_PRICES));
+      setSqftPrices(freshSqft); saveSqftPrices(freshSqft);
+      setAccPrices(freshAcc); saveAccPrices(freshAcc);
     };
 
-    const matLabels = {
-      "12ST": "12ST — 1/2" Standard Lite",
-      "58ULIX": "58ULIX — 5/8" Ultralight FC",
-      "58FG": "58FG — 5/8" Fireguard (Type X)",
-      "12TB": "12TB — 1/2" Tile Backer",
-      "58TB": "58TB — 5/8" Tile Backer",
-      "12CD": "12CD — 1/2" Ceiling Board",
-      "14FL": "14FL — 1/4" Flexible",
-      "1254": "1254 — 1/2" 54" Std Lite",
-      "12DU": "12DU — 1/2" Durock",
-      "58DU": "58DU — 5/8" Durock",
-      "12MOLD": "12MOLD — 1/2" Aqua/Mold Tough",
-      "58MOLD": "58MOLD — 5/8" Aqua/Mold Tough",
-      "12SR": "12SR — 1/2" Securock",
-      "58SR": "58SR — 5/8" Securock",
-      "12FG": "12FG — 1/2" Fireguard (FC Type C)",
-      "12AR": "12AR — 1/2" Abuse Resistant",
-      "58AR": "58AR — 5/8" Abuse Resistant",
-      "01GM": "01GM — Shaft Board (Glass Mat)",
+    const exportPricesCSV = () => {
+      const rows = [["code", "label", "price", "unit", "category"]];
+      // Board types
+      const boardLabelsLocal = {
+        "12ST":"12ST — 1/2\" Standard Lite","58FG":"58FG — 5/8\" Fireguard (Type X)","58ULIX":"58ULIX — 5/8\" Ultralight FC",
+        "12CD":"12CD — 1/2\" Ceiling Board","12MOLD":"12MOLD — 1/2\" Aqua/Mold Tough","58MOLD":"58MOLD — 5/8\" Aqua/Mold Tough",
+        "12FG":"12FG — 1/2\" Fireguard (FC Type C)","12AR":"12AR — 1/2\" Abuse Resistant","58AR":"58AR — 5/8\" Abuse Resistant",
+        "1254":"1254 — 1/2\" 54\" Std Lite","14FL":"14FL — 1/4\" Flexible","12TB":"12TB — 1/2\" Tile Backer",
+        "58TB":"58TB — 5/8\" Tile Backer","12DU":"12DU — 1/2\" Durock","58DU":"58DU — 5/8\" Durock",
+        "12SR":"12SR — 1/2\" Securock","58SR":"58SR — 5/8\" Securock","01GM":"01GM — Shaft Board (Glass Mat)",
+      };
+      Object.keys(boardLabelsLocal).forEach(code => {
+        const price = sqftPrices?.[code] ?? DEFAULT_SQFT_PRICES[code];
+        rows.push([code, boardLabelsLocal[code], price.toFixed(4), "$/sqft", "Board Types"]);
+      });
+      // Accessories
+      const accSections = {
+        "Mud & Tape": ["RPHBTP","SYLLJT17","SYCLFN17","HMRL17","SYPDCF","RPFIBA"],
+        "Beads & Trim": ["RPLL100","PBTBD","B1XW","PJC58","PJC12","PBB9","PB58A9","VB41","VB9000"],
+        "Metal & Track": ["MS18RES","MS18124","MS18HAT"],
+        "Fasteners & Adhesives": ["ADDSA2","ADDSA4","DS001F","JW15104","DS114C","DS002C","DS002F"],
+      };
+      const accLabelMapLocal = {};
+      Object.values(ACCESSORIES).flat().forEach(a => { accLabelMapLocal[a.split(" ")[0]] = a; });
+      Object.entries(accSections).forEach(([section, codes]) => {
+        codes.forEach(code => {
+          const p = accPrices?.[code] ?? DEFAULT_ACC_PRICES[code];
+          const unitStr = section === "Beads & Trim" && code !== "RPLL100" ? "$/ft" : `$/${p?.unit || "ea"}`;
+          rows.push([code, accLabelMapLocal[code] || code, (p?.price ?? 0).toFixed(4), unitStr, section]);
+        });
+      });
+      const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "MBDW_Pricing.csv"; a.click();
+      URL.revokeObjectURL(url);
     };
+
+    const importPricesCSV = (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const lines = ev.target.result.split("\n").slice(1); // skip header
+          const newSqft = { ...sqftPrices };
+          const newAcc = JSON.parse(JSON.stringify(accPrices));
+          let count = 0;
+          lines.forEach(line => {
+            if (!line.trim()) return;
+            // Parse CSV row - split on commas, strip surrounding quotes
+            const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, "").replace(/""/g, '"'));
+            const [code, , priceStr, unit, category] = cols;
+            if (!code || !priceStr) return;
+            const price = parseFloat(priceStr);
+            if (isNaN(price)) return;
+            if (category === "Board Types") {
+              if (DEFAULT_SQFT_PRICES[code] !== undefined) { newSqft[code] = price; count++; }
+            } else {
+              if (DEFAULT_ACC_PRICES[code] !== undefined) {
+                newAcc[code] = { ...newAcc[code], price };
+                count++;
+              }
+            }
+          });
+          setSqftPrices(newSqft); saveSqftPrices(newSqft);
+          setAccPrices(newAcc); saveAccPrices(newAcc);
+          setImportMsg(`✅ ${count} prices updated`);
+          setTimeout(() => setImportMsg(""), 3000);
+        } catch(err) {
+          setImportMsg("❌ Import failed — check file format");
+          setTimeout(() => setImportMsg(""), 4000);
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = ""; // reset input
+    };
+
+
+    const boardLabels = {
+      "12ST":   "12ST — 1/2\" Standard Lite",
+      "58ULIX": "58ULIX — 5/8\" Ultralight FC",
+      "58FG":   "58FG — 5/8\" Fireguard (Type X)",
+      "12TB":   "12TB — 1/2\" Tile Backer",
+      "58TB":   "58TB — 5/8\" Tile Backer",
+      "12CD":   "12CD — 1/2\" Ceiling Board",
+      "14FL":   "14FL — 1/4\" Flexible",
+      "1254":   "1254 — 1/2\" 54\" Std Lite",
+      "12DU":   "12DU — 1/2\" Durock",
+      "58DU":   "58DU — 5/8\" Durock",
+      "12MOLD": "12MOLD — 1/2\" Aqua/Mold Tough",
+      "58MOLD": "58MOLD — 5/8\" Aqua/Mold Tough",
+      "12SR":   "12SR — 1/2\" Securock",
+      "58SR":   "58SR — 5/8\" Securock",
+      "12FG":   "12FG — 1/2\" Fireguard (FC Type C)",
+      "12AR":   "12AR — 1/2\" Abuse Resistant",
+      "58AR":   "58AR — 5/8\" Abuse Resistant",
+      "01GM":   "01GM — Shaft Board (Glass Mat)",
+    };
+
+    const accSectionLabels = {
+      "Mud & Tape": ["RPHBTP","SYLLJT17","SYCLFN17","HMRL17","SYPDCF","RPFIBA"],
+      "Beads & Trim": ["RPLL100","PBTBD","B1XW","PJC58","PJC12","PBB9","PB58A9","VB41","VB9000"],
+      "Metal & Track": ["MS18RES","MS18124","MS18HAT"],
+      "Fasteners & Adhesives": ["ADDSA2","ADDSA4","DS001F","JW15104","DS114C","DS002C","DS002F"],
+    };
+
+    // Map accessory full labels from ACCESSORIES const
+    const accLabelMap = {};
+    Object.values(ACCESSORIES).flat().forEach(a => {
+      const code = a.split(" ")[0];
+      accLabelMap[code] = a;
+    });
 
     return (
       <div style={styles.shell}>
@@ -1825,52 +2567,72 @@ export default function TakeoffApp() {
           <button onClick={resetPrices} style={{ background: "none", border: "1px solid #ef4444", borderRadius: 6, color: "#ef4444", fontSize: 11, fontWeight: 700, padding: "4px 8px", cursor: "pointer" }}>RESET</button>
         </div>
         <div style={{ ...styles.body, padding: "0 0 40px 0" }}>
-          <div style={{ padding: "10px 14px 4px", fontSize: 11, color: "#64748b" }}>
-            Tap any price to edit. Null = not available for that length. Prices per sheet (Shoemaker effective Feb 20, 2026).
+          <div style={{ padding: "10px 14px 6px", fontSize: 11, color: "#64748b" }}>
+            Tap a section to expand. Click Edit to update a price. Saves automatically.
           </div>
 
-          {/* Column header */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 60px 60px 60px 60px", gap: 2, padding: "6px 12px", background: "#0f172a", borderBottom: "1px solid #1e293b", position: "sticky", top: 0, zIndex: 10 }}>
-            <div style={{ fontSize: 10, color: "#475569", fontWeight: 700 }}>MATERIAL</div>
-            {LENGTHS.map(l => <div key={l} style={{ fontSize: 10, color: "#475569", fontWeight: 700, textAlign: "center" }}>{l}</div>)}
+          {/* Export / Import toolbar */}
+          <div style={{ display: "flex", gap: 8, padding: "8px 14px 12px", borderBottom: "2px solid #1e293b", alignItems: "center" }}>
+            <button
+              onClick={exportPricesCSV}
+              style={{ flex: 1, background: "#1e293b", border: "1px solid #334155", borderRadius: 7, color: "#60a5fa", fontSize: 12, fontWeight: 700, padding: "8px 0", cursor: "pointer" }}
+            >⬇ Export CSV</button>
+            <button
+              onClick={() => importFileRef.current?.click()}
+              style={{ flex: 1, background: "#1e293b", border: "1px solid #334155", borderRadius: 7, color: "#34d399", fontSize: 12, fontWeight: 700, padding: "8px 0", cursor: "pointer" }}
+            >⬆ Import CSV</button>
+            <input ref={importFileRef} type="file" accept=".csv" style={{ display: "none" }} onChange={importPricesCSV} />
           </div>
-
-          {Object.keys(matLabels).map(code => (
-            <div key={code} style={{ borderBottom: "1px solid #1e293b" }}>
-              <div style={{ padding: "6px 12px 2px", fontSize: 11, color: "#94a3b8", fontWeight: 700, background: "#0d1a2a" }}>{matLabels[code]}</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 60px 60px 60px 60px", gap: 2, padding: "4px 12px 8px" }}>
-                <div style={{ fontSize: 10, color: "#475569" }}>Shoemaker item</div>
-                {LENGTHS.map(len => {
-                  const price = sheetPrices?.[code]?.[len];
-                  const isNull = price === null || price === undefined;
-                  return (
-                    <div key={len}
-                      style={{ background: isNull ? "#0f172a" : "#1e293b", borderRadius: 4, padding: "4px 2px", textAlign: "center", cursor: isNull ? "default" : "pointer", fontSize: 12, color: isNull ? "#1e293b" : "#34d399", fontWeight: 600, border: isNull ? "1px solid #1a1a2e" : "1px solid #334155" }}
-                      onClick={() => {
-                        if (isNull) return;
-                        const v = prompt(`${code} ${len} price per sheet:`, String(price));
-                        if (v !== null && v.trim() !== "") {
-                          const n = parseFloat(v);
-                          if (!isNaN(n)) updatePrice(code, len, v);
-                        }
-                      }}
-                    >
-                      {isNull ? "—" : `$${price.toFixed(2)}`}
-                    </div>
-                  );
-                })}
-              </div>
+          {importMsg && (
+            <div style={{ padding: "8px 14px", fontSize: 12, fontWeight: 700, color: importMsg.startsWith("✅") ? "#34d399" : "#ef4444", background: "#0d1a2a", borderBottom: "1px solid #1e293b" }}>
+              {importMsg}
             </div>
+          )}
+
+          {/* Board Types — price per sqft */}
+          <PricingSection title="BOARD TYPES" count={`${Object.keys(boardLabels).length} items · $/sqft`}>
+            {Object.keys(boardLabels).map(code => (
+              <PricingRow
+                key={code}
+                code={code}
+                label={boardLabels[code]}
+                price={sqftPrices?.[code] ?? DEFAULT_SQFT_PRICES[code]}
+                defaultPrice={DEFAULT_SQFT_PRICES[code]}
+                unit="sqft"
+                onSave={n => {
+                  const np = { ...sqftPrices, [code]: n };
+                  setSqftPrices(np); saveSqftPrices(np);
+                }}
+              />
+            ))}
+          </PricingSection>
+
+          {/* Accessory sections — price per unit */}
+          {Object.entries(accSectionLabels).map(([section, codes]) => (
+            <PricingSection key={section} title={section.toUpperCase()} count={`${codes.length} items · ${section === "Beads & Trim" ? "$/ft" : "$/unit"}`}>
+              {codes.map(code => (
+                <PricingRow
+                  key={code}
+                  code={code}
+                  label={accLabelMap[code] || code}
+                  price={accPrices?.[code]?.price ?? DEFAULT_ACC_PRICES[code]?.price}
+                  defaultPrice={DEFAULT_ACC_PRICES[code]?.price}
+                  unit={accPrices?.[code]?.unit ?? DEFAULT_ACC_PRICES[code]?.unit ?? "ea"}
+                  onSave={n => {
+                    const np = { ...accPrices, [code]: { ...accPrices[code], price: n } };
+                    setAccPrices(np); saveAccPrices(np);
+                  }}
+                />
+              ))}
+            </PricingSection>
           ))}
 
           <div style={{ padding: 16, margin: 12, background: "#0d1a2a", borderRadius: 8, border: "1px solid #1e293b" }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#f59e0b", marginBottom: 6 }}>📋 Future Price Updates</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#f59e0b", marginBottom: 6 }}>📋 Updating Prices</div>
             <div style={{ fontSize: 11, color: "#64748b", lineHeight: 1.6 }}>
-              To update prices from a new Shoemaker price list:<br/>
-              1. Open Admin Pricing (password: MBDW2025P)<br/>
-              2. Tap each cell to enter the new per-sheet Variant Price<br/>
-              3. Changes save automatically to this device<br/>
-              4. Use RESET to restore Shoemaker Feb 2026 defaults
+              Tap a section heading to expand it, then click Edit next to any item.<br/>
+              Board types use price per sqft. Beads &amp; Trim use price per foot. Other accessories use price per unit.<br/>
+              Use RESET to restore all Feb 2026 Shoemaker defaults.
             </div>
           </div>
         </div>
@@ -2078,6 +2840,8 @@ const styles = {
     maxWidth: "100vw",
     boxSizing: "border-box",
     gap: 12,
+    maxHeight: "85dvh",
+    overflowY: "auto",
   },
   modalHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   modalTitle: { fontWeight: 800, fontSize: 17 },
