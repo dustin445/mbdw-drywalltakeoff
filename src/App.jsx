@@ -25,9 +25,54 @@ const MATERIALS = [
 
 const LENGTHS = ["8'", "9'", "10'", "12'", "14'"];
 
+// ─── MATERIAL PRICING (Shoemaker price list, effective Feb 20 2026) ───────────
+// Per-sheet prices by material code and length. Update via Admin Pricing screen.
+// Stored in localStorage key: takeoff_sheet_prices (overrides these defaults)
+const DEFAULT_SHEET_PRICES = {
+  "12ST":   { "8'": 14.40, "9'": 16.20, "10'": 18.00, "12'": 21.60, "14'": 25.20 },
+  "58ULIX": { "8'": 19.07, "9'": 21.46, "10'": 23.84, "12'": 28.61, "14'": null  },
+  "58FG":   { "8'": 18.08, "9'": 20.34, "10'": 22.60, "12'": 27.12, "14'": null  },
+  "12TB":   { "8'": 51.84, "9'": null,   "10'": null,   "12'": null,   "14'": null  },
+  "58TB":   { "8'": 59.04, "9'": null,   "10'": null,   "12'": null,   "14'": null  },
+  "12CD":   { "8'": 18.24, "9'": null,   "10'": 22.80, "12'": 27.36, "14'": 31.92 },
+  "14FL":   { "8'": 26.02, "9'": null,   "10'": null,   "12'": 39.02, "14'": null  },
+  "1254":   { "8'": 20.34, "9'": null,   "10'": 25.43, "12'": 30.51, "14'": null  },
+  "12DU":   { "8'": 55.04, "9'": null,   "10'": null,   "12'": null,   "14'": null  },
+  "58DU":   { "8'": 78.72, "9'": null,   "10'": null,   "12'": null,   "14'": null  },
+  "12MOLD": { "8'": 34.40, "9'": null,   "10'": 43.00, "12'": 51.60, "14'": null  },
+  "58MOLD": { "8'": 40.00, "9'": 45.00, "10'": 50.00, "12'": 60.00, "14'": null  },
+  "12SR":   { "8'": 37.44, "9'": null,   "10'": null,   "12'": null,   "14'": null  },
+  "58SR":   { "8'": 40.54, "9'": null,   "10'": 50.68, "12'": null,   "14'": null  },
+  "12FG":   { "8'": 18.24, "9'": null,   "10'": 22.80, "12'": 27.36, "14'": null  },
+  "12AR":   { "8'": 37.95, "9'": null,   "10'": 47.44, "12'": 56.93, "14'": null  },
+  "58AR":   { "8'": 44.35, "9'": 49.90, "10'": 55.44, "12'": 66.53, "14'": null  },
+  "01GM":   { "8'": 30.66, "9'": null,   "10'": 38.32, "12'": null,   "14'": null  },
+};
+
+const loadSheetPrices = () => {
+  try {
+    const saved = localStorage.getItem("takeoff_sheet_prices");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return { ...JSON.parse(JSON.stringify(DEFAULT_SHEET_PRICES)), ...parsed };
+    }
+  } catch(e) {}
+  return JSON.parse(JSON.stringify(DEFAULT_SHEET_PRICES));
+};
+
+const saveSheetPrices = (prices) => {
+  try { localStorage.setItem("takeoff_sheet_prices", JSON.stringify(prices)); } catch(e) {}
+};
+
+const getSheetPrice = (prices, mat, length) => {
+  const code = mat.split(" ")[0];
+  return prices?.[code]?.[length] ?? null;
+};
+
+
 const ACCESSORIES = {
   "Mud & Tape": [
-    "RPJNTP (DRYWALL TAPE 500')",
+    "RPHBTP (DRYWALL TAPE 500')",
     "SYLLJT17 (SYNKO LITE JOINT MUD YELLOW)",
     "SYCLFN17 (SYNKO CLASSIS FINISH RED)",
     "HMRL17 (HAMILTON RED LINE FINISH)",
@@ -46,9 +91,9 @@ const ACCESSORIES = {
     "VB9000 (FLAT TEAR AWAY BEAD)",
   ],
   "Metal & Track": [
-    "MS18RES (25G RESILIENT CHANNEL)",
-    "MS18124 (25G 1 1/2\" X 1 1/4\" ANGLE)",
-    "MS18HAT (25G HAT TRACK)",
+    "MS18RES (25G RESILIENT CHANNEL 12')",
+    "MS18124 (25G 1 1/2\" X 1 1/4\" ANGLE 10')",
+    "MS18HAT (25G HAT TRACK 12')",
   ],
   "Fasteners & Adhesives": [
     "ADDSA2 (DSA 20 ADHESIVE)",
@@ -79,6 +124,23 @@ const initAreaData = () => {
   return data;
 };
 
+const initBudgetPricing = () => ({
+  resBar: { qty: 0, rate: 0.25, manualQty: false, manualTotal: false },
+  boarding: { rate: 0.35, manualTotal: false },
+  scrap: { rate: 0.06, manualTotal: false },
+  beading: { qty: 0, rate: 0.80, manualQty: false, manualTotal: false },
+  taping: { noTapeFootage: 0, rate: 0.40, manualTotal: false },
+  customLabour: [],
+  boardingDrive: { rate: 65, manualTotal: false },
+  tapingDrive: { rate: 50, manualTotal: false },
+  management: { trips: 3, costPerTrip: 150, manualTotal: false },
+  warranty: { qty: 0, rate: 50, manualTotal: false },
+  scaffold: { qty: 1, rate: 500, manualTotal: false },
+  overhead: { pct: 10 },
+  profit: { pct: 15 },
+  manualOverrides: {},
+});
+
 const initJob = (name, jobNumber = "", type = "single") => ({
   id: generateId(),
   name,
@@ -87,6 +149,7 @@ const initJob = (name, jobNumber = "", type = "single") => ({
   contact: "",
   areas: (type === "multi" ? MULTIFAMILY_AREAS : DEFAULT_AREAS).map((a) => ({ id: generateId(), name: a, data: initAreaData() })),
   accessories: ALL_ACCESSORIES.map((p) => ({ product: p, qty: 0, placement: "General" })),
+  ...(type === "budget" ? { budgetPricing: initBudgetPricing() } : {}),
 });
 
 export default function TakeoffApp() {
@@ -105,6 +168,12 @@ export default function TakeoffApp() {
   const [isUnlocked, setIsUnlocked] = useState(() => {
     try { return localStorage.getItem("takeoff_unlocked") === "true"; } catch { return false; }
   });
+  const [isBudgetUnlocked, setIsBudgetUnlocked] = useState(() => {
+    try { return localStorage.getItem("takeoff_budget_unlocked") === "true"; } catch { return false; }
+  });
+  const [showBudgetUnlockModal, setShowBudgetUnlockModal] = useState(false);
+  const [budgetPasswordInput, setBudgetPasswordInput] = useState("");
+  const [budgetPasswordError, setBudgetPasswordError] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState(false);
   const [newJobName, setNewJobName] = useState("");
@@ -138,6 +207,10 @@ export default function TakeoffApp() {
   const [newCustomMaterial, setNewCustomMaterial] = useState("");
   const [newCustomAccessory, setNewCustomAccessory] = useState("");
   const [toast, setToast] = useState("");
+  const [sheetPrices, setSheetPrices] = useState(() => loadSheetPrices());
+  const [adminPriceInput, setAdminPriceInput] = useState("");
+  const [adminPriceError, setAdminPriceError] = useState(false);
+  const [isPricingUnlocked, setIsPricingUnlocked] = useState(false);
   const [bulkPopup, setBulkPopup] = useState(null); // { x, y, mat, len, count }
   const bulkInterval = useRef(null);
   const accScrollRef = useRef(null);
@@ -305,6 +378,20 @@ export default function TakeoffApp() {
   };
 
   const [showJobNumberWarning, setShowJobNumberWarning] = useState(false);
+
+  const handleBudgetUnlock = () => {
+    if (budgetPasswordInput === "MBDW2025B") { // Budget password
+      localStorage.setItem("takeoff_budget_unlocked", "true");
+      setIsBudgetUnlocked(true);
+      setShowBudgetUnlockModal(false);
+      setBudgetPasswordInput("");
+      setBudgetPasswordError(false);
+      setNewJobType("budget");
+    } else {
+      setBudgetPasswordError(true);
+      setBudgetPasswordInput("");
+    }
+  };
 
   const createJob = (skipNumberCheck = false) => {
     if (!newJobName.trim()) return;
@@ -634,12 +721,19 @@ export default function TakeoffApp() {
             style={{ height: 38, objectFit: "contain", mixBlendMode: "screen" }}
           />
           <span style={styles.logo}>Maclean Bros.</span>
-          {jobs.length > 0 && (
+          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+            {jobs.length > 0 && (
+              <button
+                style={{ background: "none", border: "none", color: showSearch ? "#60a5fa" : "#475569", fontSize: 20, cursor: "pointer", padding: "0 4px" }}
+                onClick={() => { setShowSearch(s => !s); setJobSearch(""); }}
+              >🔍</button>
+            )}
             <button
-              style={{ background: "none", border: "none", color: showSearch ? "#60a5fa" : "#475569", fontSize: 20, cursor: "pointer", padding: "0 4px" }}
-              onClick={() => { setShowSearch(s => !s); setJobSearch(""); }}
-            >🔍</button>
-          )}
+              style={{ background: "none", border: "none", color: "#1e293b", fontSize: 16, cursor: "pointer", padding: "0 2px" }}
+              onClick={() => setScreen("pricing")}
+              title="Admin Pricing"
+            >⚙️</button>
+          </div>
         </div>
 
         {showSearch && (
@@ -738,7 +832,7 @@ export default function TakeoffApp() {
         {showNewJobModal && (
           <Modal title="New Job" onClose={() => { setShowNewJobModal(false); setNewJobName(""); setNewJobNumber(""); setNewJobType("single"); setShowJobNumberWarning(false); }}>
             {/* Job type selector */}
-            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
               <button
                 style={{ ...styles.typeBtn, background: newJobType === "single" ? "#0369a1" : "#1e293b", borderColor: newJobType === "single" ? "#38bdf8" : "#334155", color: newJobType === "single" ? "#fff" : "#94a3b8" }}
                 onClick={() => setNewJobType("single")}
@@ -751,6 +845,21 @@ export default function TakeoffApp() {
               >
                 🏢 Multifamily
               </button>
+              {isBudgetUnlocked ? (
+                <button
+                  style={{ ...styles.typeBtn, background: newJobType === "budget" ? "#065f46" : "#1e293b", borderColor: newJobType === "budget" ? "#34d399" : "#334155", color: newJobType === "budget" ? "#fff" : "#94a3b8" }}
+                  onClick={() => setNewJobType("budget")}
+                >
+                  💰 Budget Order
+                </button>
+              ) : (
+                <button
+                  style={{ ...styles.typeBtn, background: "#1e293b", borderColor: "#334155", color: "#475569" }}
+                  onClick={() => setShowBudgetUnlockModal(true)}
+                >
+                  🔒
+                </button>
+              )}
             </div>
             <input
               autoFocus
@@ -787,9 +896,28 @@ export default function TakeoffApp() {
             <div style={{ fontSize: 12, color: "#475569", marginBottom: 10 }}>
               {newJobType === "multi"
                 ? "Preloads Units 1–6 (renameable)"
+                : newJobType === "budget"
+                ? "Preloads Upper Floor, Main Floor, Basement, Suite, Garage + Pricing Matrix"
                 : "Preloads Upper Floor, Main Floor, Basement, Suite, Garage"}
             </div>
             <button style={styles.btnPrimary} onClick={() => createJob()}>Create Job</button>
+          </Modal>
+        )}
+
+        {showBudgetUnlockModal && (
+          <Modal title="🔒 Budget Access" onClose={() => { setShowBudgetUnlockModal(false); setBudgetPasswordInput(""); setBudgetPasswordError(false); }}>
+            <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 12 }}>Enter the budget password to unlock Budget Order jobs.</p>
+            <input
+              autoFocus
+              type="password"
+              style={styles.input}
+              placeholder="Password"
+              value={budgetPasswordInput}
+              onChange={(e) => { setBudgetPasswordInput(e.target.value); setBudgetPasswordError(false); }}
+              onKeyDown={(e) => e.key === "Enter" && handleBudgetUnlock()}
+            />
+            {budgetPasswordError && <div style={{ color: "#ef4444", fontSize: 13, marginBottom: 8 }}>Incorrect password.</div>}
+            <button style={styles.btnPrimary} onClick={handleBudgetUnlock}>Unlock</button>
           </Modal>
         )}
 
@@ -896,6 +1024,16 @@ export default function TakeoffApp() {
             </div>
             <span style={{ fontSize: 20 }}>›</span>
           </button>
+
+          {currentJob?.type === "budget" && (
+            <button style={{ ...styles.accessoriesNav, borderColor: "#34d399", marginTop: 8 }} onClick={() => setScreen("budget")}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>💰 Budget & Pricing</div>
+                <div style={{ color: "#64748b", fontSize: 12, marginTop: 2 }}>Labour rates, drive, overhead & profit</div>
+              </div>
+              <span style={{ fontSize: 20 }}>›</span>
+            </button>
+          )}
 
           <div style={{ marginTop: 16 }}>
             <div style={styles.sectionRow}>
@@ -1094,12 +1232,309 @@ export default function TakeoffApp() {
     );
   }
 
+  if (screen === "budget") {
+    const bp = currentJob?.budgetPricing || initBudgetPricing();
+    const totalSqFt = currentJob?.areas.reduce((s, a) => s + areaSqFt(a, selectedMaterials), 0) || 0;
+
+    const boardingFootage = totalSqFt;
+    const tapingFootage = Math.max(0, boardingFootage - (bp.taping.noTapeFootage || 0));
+
+    // Res bar auto-calc: MS18RES qty × 12' (unless manually overridden)
+    const resBarAccessoryQty = (currentJob?.accessories || []).find(a => a.product.startsWith("MS18RES"))?.qty || 0;
+    const resBarAutoQty = bp.resBar.manualQty ? bp.resBar.qty : resBarAccessoryQty * 12;
+
+    // Drive quantities rounded up to nearest 1
+    const boardingDriveQty = Math.ceil(boardingFootage / 3000);
+    const tapingDriveQty = Math.ceil(tapingFootage / 3000);
+
+    const updateBP = (path, value) => {
+      setJobs(prev => prev.map(j => {
+        if (j.id !== currentJobId) return j;
+        const newBP = JSON.parse(JSON.stringify(j.budgetPricing || initBudgetPricing()));
+        const keys = path.split(".");
+        let obj = newBP;
+        for (let i = 0; i < keys.length - 1; i++) obj = obj[keys[i]];
+        obj[keys[keys.length - 1]] = value;
+        return { ...j, budgetPricing: newBP };
+      }));
+    };
+
+    const addCustomLabour = () => {
+      setJobs(prev => prev.map(j => {
+        if (j.id !== currentJobId) return j;
+        const newBP = JSON.parse(JSON.stringify(j.budgetPricing || initBudgetPricing()));
+        newBP.customLabour = [...(newBP.customLabour || []), { id: Date.now().toString(), label: "Custom Labour", qty: 0, rate: 0, manualTotal: false }];
+        return { ...j, budgetPricing: newBP };
+      }));
+    };
+
+    const updateCustomLabour = (id, field, value) => {
+      setJobs(prev => prev.map(j => {
+        if (j.id !== currentJobId) return j;
+        const newBP = JSON.parse(JSON.stringify(j.budgetPricing || initBudgetPricing()));
+        newBP.customLabour = newBP.customLabour.map(r => r.id === id ? { ...r, [field]: value } : r);
+        return { ...j, budgetPricing: newBP };
+      }));
+    };
+
+    const deleteCustomLabour = (id) => {
+      setJobs(prev => prev.map(j => {
+        if (j.id !== currentJobId) return j;
+        const newBP = JSON.parse(JSON.stringify(j.budgetPricing || initBudgetPricing()));
+        newBP.customLabour = newBP.customLabour.filter(r => r.id !== id);
+        return { ...j, budgetPricing: newBP };
+      }));
+    };
+
+    // Computed totals (unless manually overridden)
+    const rows = {
+      resBar:       { label: "Res Bar / Angle",  qty: resBarAutoQty,        rate: bp.resBar.rate,           total: bp.resBar.manualTotal !== false ? bp.resBar.manualTotal : resBarAutoQty * bp.resBar.rate },
+      boarding:     { label: "Boarding",          qty: boardingFootage,      rate: bp.boarding.rate,         total: bp.boarding.manualTotal !== false ? bp.boarding.manualTotal : boardingFootage * bp.boarding.rate },
+      scrap:        { label: "Scrap",             qty: boardingFootage,      rate: bp.scrap.rate,            total: bp.scrap.manualTotal !== false ? bp.scrap.manualTotal : boardingFootage * bp.scrap.rate },
+      beading:      { label: "Beading",           qty: bp.beading.qty,       rate: bp.beading.rate,          total: bp.beading.manualTotal !== false ? bp.beading.manualTotal : bp.beading.qty * bp.beading.rate },
+      taping:       { label: "Taping",            qty: tapingFootage,        rate: bp.taping.rate,           total: bp.taping.manualTotal !== false ? bp.taping.manualTotal : tapingFootage * bp.taping.rate },
+      boardingDrive:{ label: "Boarding Drive",    qty: boardingDriveQty,     rate: bp.boardingDrive.rate,    total: bp.boardingDrive.manualTotal !== false ? bp.boardingDrive.manualTotal : boardingDriveQty * bp.boardingDrive.rate },
+      tapingDrive:  { label: "Taping Drive",      qty: tapingDriveQty,       rate: bp.tapingDrive.rate,      total: bp.tapingDrive.manualTotal !== false ? bp.tapingDrive.manualTotal : tapingDriveQty * bp.tapingDrive.rate },
+      management:   { label: "Management",        qty: bp.management.trips,  rate: bp.management.costPerTrip,total: bp.management.manualTotal !== false ? bp.management.manualTotal : bp.management.trips * bp.management.costPerTrip },
+      warranty:     { label: "Warranty",          qty: bp.warranty.qty,      rate: bp.warranty.rate,         total: bp.warranty.manualTotal !== false ? bp.warranty.manualTotal : bp.warranty.qty * bp.warranty.rate },
+      scaffold:     { label: "Scaffold",          qty: bp.scaffold.qty,      rate: bp.scaffold.rate,         total: bp.scaffold.manualTotal !== false ? bp.scaffold.manualTotal : bp.scaffold.qty * bp.scaffold.rate },
+    };
+
+    const customLabourRows = (bp.customLabour || []);
+    const customLabourTotal = customLabourRows.reduce((s, r) => s + (r.manualTotal !== false ? r.manualTotal : r.qty * r.rate), 0);
+    const subTotal = Object.values(rows).reduce((s, r) => s + (r.total || 0), 0) + customLabourTotal;
+    // Material cost: sum of (sheet qty × price per sheet) across all areas/materials/lengths
+    const calcMaterialCost = () => {
+      let total = 0;
+      const mats = selectedMaterials.length > 0 ? selectedMaterials : MATERIALS;
+      (currentJob?.areas || []).forEach(area => {
+        mats.forEach(mat => {
+          LENGTHS.forEach(len => {
+            const qty = area?.data[mat]?.[len] || 0;
+            if (qty > 0) {
+              const price = getSheetPrice(sheetPrices, mat, len);
+              if (price !== null) total += qty * price;
+            }
+          });
+        });
+      });
+      return total;
+    };
+    const materialCost = bp.materialCost?.manualTotal !== undefined ? bp.materialCost.manualTotal : calcMaterialCost();
+    const materialCostIsManual = bp.materialCost?.manualTotal !== undefined;
+    const ohAmt = subTotal * (bp.overhead.pct / 100);
+    const profitAmt = subTotal * (bp.profit.pct / 100);
+    const totalQuote = materialCost + subTotal + ohAmt + profitAmt;
+
+    const BPRow = ({ rowKey, row, qtyEditable = false, qtyPath = null, showNoTape = false }) => {
+      const isManual = (currentJob?.budgetPricing?.[rowKey]?.manualTotal !== false && currentJob?.budgetPricing?.[rowKey]?.manualTotal !== undefined) ||
+        (bp[rowKey]?.manualTotal !== false && bp[rowKey]?.manualTotal !== undefined && bp[rowKey]?.manualTotal !== false);
+      const manualQty = currentJob?.budgetPricing?.[rowKey]?.manualQty;
+      return (
+        <div style={{ borderBottom: "1px solid #1e293b" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px", alignItems: "center", padding: "8px 12px", gap: 4 }}>
+            <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600 }}>
+              {row.label}
+              {(isManual || manualQty) && <span style={{ fontSize: 10, color: "#f59e0b", marginLeft: 6 }}>⚠️ edited</span>}
+            </div>
+            {/* Qty */}
+            <div
+              style={{ fontSize: 12, color: manualQty ? "#f59e0b" : "#94a3b8", textAlign: "right", cursor: qtyEditable ? "pointer" : "default" }}
+              onClick={() => {
+                if (!qtyEditable) return;
+                const v = prompt(`Edit quantity for ${row.label}:`, String(row.qty));
+                if (v !== null && !isNaN(parseFloat(v))) {
+                  updateBP(`${rowKey}.${qtyPath}`, parseFloat(v));
+                  updateBP(`${rowKey}.manualQty`, true);
+                  updateBP(`${rowKey}.manualTotal`, false);
+                }
+              }}
+            >
+              {typeof row.qty === "number" ? (Number.isInteger(row.qty) ? row.qty : row.qty.toFixed(2)) : row.qty}
+              {qtyEditable && <span style={{ fontSize: 9, color: "#475569", marginLeft: 2 }}>✏️</span>}
+            </div>
+            {/* Rate */}
+            <div
+              style={{ fontSize: 12, color: "#64748b", textAlign: "right", cursor: "pointer" }}
+              onClick={() => {
+                const rateKey = rowKey === "management" ? "costPerTrip" : "rate";
+                const v = prompt(`Edit rate for ${row.label}:`, String(row.rate));
+                if (v !== null && !isNaN(parseFloat(v))) {
+                  updateBP(`${rowKey}.${rateKey}`, parseFloat(v));
+                  updateBP(`${rowKey}.manualTotal`, false);
+                }
+              }}
+            >
+              ${row.rate}<span style={{ fontSize: 9, color: "#475569", marginLeft: 2 }}>✏️</span>
+            </div>
+            {/* Total */}
+            <div
+              style={{ fontSize: 13, fontWeight: 700, color: isManual ? "#f59e0b" : "#34d399", textAlign: "right", cursor: "pointer" }}
+              onClick={() => {
+                const v = prompt(`Override total for ${row.label}:`, String(row.total?.toFixed(2)));
+                if (v !== null && !isNaN(parseFloat(v))) {
+                  updateBP(`${rowKey}.manualTotal`, parseFloat(v));
+                }
+              }}
+            >
+              ${(row.total || 0).toFixed(0)}<span style={{ fontSize: 9, color: "#475569", marginLeft: 2 }}>✏️</span>
+            </div>
+          </div>
+          {showNoTape && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 12px 8px", borderTop: "1px solid #0f172a" }}>
+              <span style={{ fontSize: 11, color: "#475569", flex: 1 }}>No-tape footage:</span>
+              <input
+                type="number"
+                min="0"
+                style={{ ...styles.input, marginBottom: 0, width: 90, padding: "4px 8px", fontSize: 12, textAlign: "right" }}
+                value={bp.taping.noTapeFootage || 0}
+                onChange={(e) => updateBP("taping.noTapeFootage", parseFloat(e.target.value) || 0)}
+              />
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    return (
+      <div style={{ ...styles.shell, maxWidth: isLandscape ? "100%" : 520 }}>
+        <div style={{ ...styles.header, padding: isLandscape ? "8px 16px" : "14px 16px" }}>
+          <button style={styles.back} onClick={() => setScreen("job")}>‹</button>
+          <div style={{ flex: 1 }}>
+            <div style={{ ...styles.headerTitle, fontSize: 14 }}>💰 Budget & Pricing</div>
+            <div style={{ fontSize: 11, color: "#64748b" }}>{currentJob?.name}</div>
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: "#34d399" }}>${totalQuote.toFixed(0)}</div>
+        </div>
+
+        <div style={{ flex: 1, overflowY: "auto" }}>
+          {/* Material Cost */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px", padding: "8px 12px", background: "#1a1a2e", borderBottom: "2px solid #f59e0b", alignItems: "center" }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#f59e0b", letterSpacing: 1 }}>
+              MATERIAL COST
+              {materialCostIsManual && <span style={{ fontSize: 10, color: "#f59e0b", marginLeft: 6 }}>⚠️ edited</span>}
+            </div>
+            <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>{boardingFootage} ft²</div>
+            <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>per sheet</div>
+            <div
+              style={{ fontSize: 13, fontWeight: 800, color: "#f59e0b", textAlign: "right", cursor: "pointer" }}
+              onClick={() => { const v = prompt("Override material cost:", String(materialCost.toFixed(2))); if (v !== null && !isNaN(parseFloat(v))) updateBP("materialCost.manualTotal", parseFloat(v)); }}
+            >${materialCost.toFixed(0)}<span style={{ fontSize: 9, color: "#475569", marginLeft: 2 }}>✏️</span></div>
+          </div>
+
+          {/* Column headers */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px", padding: "6px 12px", background: "#0d1526", borderBottom: "1px solid #1e3a5f" }}>
+            <div style={{ fontSize: 10, color: "#475569", fontWeight: 700, letterSpacing: 1 }}>LABOUR BUDGET</div>
+            <div style={{ fontSize: 10, color: "#475569", textAlign: "right" }}>QTY</div>
+            <div style={{ fontSize: 10, color: "#475569", textAlign: "right" }}>RATE</div>
+            <div style={{ fontSize: 10, color: "#475569", textAlign: "right" }}>TOTAL</div>
+          </div>
+
+          <BPRow rowKey="resBar" row={rows.resBar} qtyEditable qtyPath="qty" />
+          <BPRow rowKey="boarding" row={rows.boarding} />
+          <BPRow rowKey="scrap" row={rows.scrap} />
+          <BPRow rowKey="beading" row={rows.beading} qtyEditable qtyPath="qty" />
+          <BPRow rowKey="taping" row={rows.taping} showNoTape />
+
+          {/* Custom labour rows */}
+          {customLabourRows.map((row) => {
+            const total = row.manualTotal !== false ? row.manualTotal : row.qty * row.rate;
+            const isManual = row.manualTotal !== false;
+            return (
+              <div key={row.id} style={{ borderBottom: "1px solid #1e293b", background: "#0d1a2a" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 72px 24px", alignItems: "center", padding: "8px 12px", gap: 4 }}>
+                  <input
+                    style={{ background: "transparent", border: "none", borderBottom: "1px solid #334155", color: "#e2e8f0", fontSize: 13, fontWeight: 600, padding: "2px 0", outline: "none" }}
+                    value={row.label}
+                    onChange={(e) => updateCustomLabour(row.id, "label", e.target.value)}
+                  />
+                  <div
+                    style={{ fontSize: 12, color: "#94a3b8", textAlign: "right", cursor: "pointer" }}
+                    onClick={() => { const v = prompt(`Qty for ${row.label}:`, String(row.qty)); if (v !== null && !isNaN(parseFloat(v))) { updateCustomLabour(row.id, "qty", parseFloat(v)); updateCustomLabour(row.id, "manualTotal", false); } }}
+                  >{row.qty}<span style={{ fontSize: 9, color: "#475569", marginLeft: 2 }}>✏️</span></div>
+                  <div
+                    style={{ fontSize: 12, color: "#64748b", textAlign: "right", cursor: "pointer" }}
+                    onClick={() => { const v = prompt(`Rate for ${row.label}:`, String(row.rate)); if (v !== null && !isNaN(parseFloat(v))) { updateCustomLabour(row.id, "rate", parseFloat(v)); updateCustomLabour(row.id, "manualTotal", false); } }}
+                  >${row.rate}<span style={{ fontSize: 9, color: "#475569", marginLeft: 2 }}>✏️</span></div>
+                  <div
+                    style={{ fontSize: 13, fontWeight: 700, color: isManual ? "#f59e0b" : "#34d399", textAlign: "right", cursor: "pointer" }}
+                    onClick={() => { const v = prompt(`Override total for ${row.label}:`, String(total.toFixed(2))); if (v !== null && !isNaN(parseFloat(v))) updateCustomLabour(row.id, "manualTotal", parseFloat(v)); }}
+                  >${total.toFixed(0)}{isManual && <span style={{ fontSize: 9, color: "#f59e0b", marginLeft: 2 }}>⚠️</span>}</div>
+                  <button
+                    style={{ background: "none", border: "none", color: "#ef4444", fontSize: 16, cursor: "pointer", padding: 0, textAlign: "center" }}
+                    onClick={() => deleteCustomLabour(row.id)}
+                  >✕</button>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Add custom labour line */}
+          <div style={{ padding: "8px 12px", borderBottom: "1px solid #1e293b" }}>
+            <button
+              style={{ background: "#0d2a1a", border: "1px dashed #34d399", borderRadius: 8, color: "#34d399", fontSize: 13, fontWeight: 700, padding: "8px 16px", cursor: "pointer", width: "100%" }}
+              onClick={addCustomLabour}
+            >＋ Add Labour Line</button>
+          </div>
+
+          <BPRow rowKey="boardingDrive" row={rows.boardingDrive} />
+          <BPRow rowKey="tapingDrive" row={rows.tapingDrive} />
+          <BPRow rowKey="management" row={rows.management} qtyEditable qtyPath="trips" />
+          <BPRow rowKey="warranty" row={rows.warranty} qtyEditable qtyPath="qty" />
+          <BPRow rowKey="scaffold" row={rows.scaffold} qtyEditable qtyPath="qty" />
+
+          {/* SUB TOTAL */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px", padding: "10px 12px", background: "#1e293b", borderTop: "2px solid #334155", borderBottom: "1px solid #334155" }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#f1f5f9", gridColumn: "1/4" }}>SUB TOTAL</div>
+            <div style={{ fontSize: 15, fontWeight: 900, color: "#60a5fa", textAlign: "right" }}>${subTotal.toFixed(0)}</div>
+          </div>
+
+          {/* OH */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px", padding: "8px 12px", borderBottom: "1px solid #1e293b", alignItems: "center" }}>
+            <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600 }}>Overhead</div>
+            <div />
+            <div
+              style={{ fontSize: 12, color: "#64748b", textAlign: "right", cursor: "pointer" }}
+              onClick={() => { const v = prompt("Edit OH %:", String(bp.overhead.pct)); if (v !== null && !isNaN(parseFloat(v))) updateBP("overhead.pct", parseFloat(v)); }}
+            >
+              {bp.overhead.pct}%<span style={{ fontSize: 9, color: "#475569", marginLeft: 2 }}>✏️</span>
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#34d399", textAlign: "right" }}>${ohAmt.toFixed(0)}</div>
+          </div>
+
+          {/* Profit */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px", padding: "8px 12px", borderBottom: "2px solid #334155", alignItems: "center" }}>
+            <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600 }}>Profit</div>
+            <div />
+            <div
+              style={{ fontSize: 12, color: "#64748b", textAlign: "right", cursor: "pointer" }}
+              onClick={() => { const v = prompt("Edit Profit %:", String(bp.profit.pct)); if (v !== null && !isNaN(parseFloat(v))) updateBP("profit.pct", parseFloat(v)); }}
+            >
+              {bp.profit.pct}%<span style={{ fontSize: 9, color: "#475569", marginLeft: 2 }}>✏️</span>
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#34d399", textAlign: "right" }}>${profitAmt.toFixed(0)}</div>
+          </div>
+
+          {/* Total Quote */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", padding: "14px 12px", background: "#0d1526" }}>
+            <div style={{ fontSize: 15, fontWeight: 900, color: "#f1f5f9" }}>TOTAL QUOTE</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: "#34d399", textAlign: "right" }}>${totalQuote.toFixed(0)}</div>
+          </div>
+
+          <div style={{ padding: "8px 12px 24px" }}>
+            <div style={{ fontSize: 10, color: "#334155", textAlign: "center" }}>Tap any QTY, RATE, or TOTAL to edit · ⚠️ = manually overridden</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (screen === "accessories") {
     const areaNames = currentJob?.areas.map((a) => a.name) || [];
 
     // Mud & tape auto-suggestion rates (single family only)
     const MUD_SUGGESTIONS = {
-      "RPJNTP (DRYWALL TAPE 500')": 1200,
+      "RPHBTP (DRYWALL TAPE 500')": 1200,
       "SYLLJT17 (SYNKO LITE JOINT MUD YELLOW)": 1800,
       "SYCLFN17 (SYNKO CLASSIS FINISH RED)": 550,
     };
@@ -1307,6 +1742,137 @@ export default function TakeoffApp() {
           </div>
 
           <div style={{ height: 32 }} />
+        </div>
+      </div>
+    );
+  }
+
+
+  // ─── ADMIN PRICING SCREEN ──────────────────────────────────────────────────
+  if (screen === "pricing") {
+    if (!isPricingUnlocked) {
+      return (
+        <div style={{ ...styles.shell, maxWidth: 520, alignItems: "center", justifyContent: "center" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 24px", width: "100%", gap: 16 }}>
+            <div style={{ fontSize: 28 }}>🔒</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Admin Pricing</div>
+            <div style={{ fontSize: 13, color: "#64748b", textAlign: "center" }}>Enter admin password to view and edit material prices</div>
+            <input
+              autoFocus
+              type="password"
+              placeholder="Admin password"
+              value={adminPriceInput}
+              onChange={e => { setAdminPriceInput(e.target.value); setAdminPriceError(false); }}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  if (adminPriceInput === "MBDW2025P") { setIsPricingUnlocked(true); setAdminPriceInput(""); }
+                  else setAdminPriceError(true);
+                }
+              }}
+              style={{ width: "100%", background: "#1e293b", border: adminPriceError ? "1px solid #ef4444" : "1px solid #334155", borderRadius: 8, color: "#e2e8f0", fontSize: 15, padding: "10px 12px", boxSizing: "border-box", outline: "none" }}
+            />
+            {adminPriceError && <div style={{ color: "#ef4444", fontSize: 12 }}>Incorrect password</div>}
+            <button onClick={() => { if (adminPriceInput === "MBDW2025P") { setIsPricingUnlocked(true); setAdminPriceInput(""); } else setAdminPriceError(true); }}
+              style={{ background: "#2563eb", border: "none", borderRadius: 8, color: "#fff", fontWeight: 700, fontSize: 14, padding: "10px 28px", cursor: "pointer" }}>Unlock</button>
+            <button onClick={() => setScreen("home")} style={{ background: "none", border: "none", color: "#64748b", fontSize: 13, cursor: "pointer" }}>← Back</button>
+          </div>
+        </div>
+      );
+    }
+
+    // Price entry helper
+    const updatePrice = (code, length, val) => {
+      const num = val === "" ? null : parseFloat(val);
+      const newPrices = JSON.parse(JSON.stringify(sheetPrices));
+      if (!newPrices[code]) newPrices[code] = {};
+      newPrices[code][length] = (isNaN(num) || val === "") ? null : num;
+      setSheetPrices(newPrices);
+      saveSheetPrices(newPrices);
+    };
+
+    const resetPrices = () => {
+      const fresh = JSON.parse(JSON.stringify(DEFAULT_SHEET_PRICES));
+      setSheetPrices(fresh);
+      saveSheetPrices(fresh);
+    };
+
+    const matLabels = {
+      "12ST": "12ST — 1/2" Standard Lite",
+      "58ULIX": "58ULIX — 5/8" Ultralight FC",
+      "58FG": "58FG — 5/8" Fireguard (Type X)",
+      "12TB": "12TB — 1/2" Tile Backer",
+      "58TB": "58TB — 5/8" Tile Backer",
+      "12CD": "12CD — 1/2" Ceiling Board",
+      "14FL": "14FL — 1/4" Flexible",
+      "1254": "1254 — 1/2" 54" Std Lite",
+      "12DU": "12DU — 1/2" Durock",
+      "58DU": "58DU — 5/8" Durock",
+      "12MOLD": "12MOLD — 1/2" Aqua/Mold Tough",
+      "58MOLD": "58MOLD — 5/8" Aqua/Mold Tough",
+      "12SR": "12SR — 1/2" Securock",
+      "58SR": "58SR — 5/8" Securock",
+      "12FG": "12FG — 1/2" Fireguard (FC Type C)",
+      "12AR": "12AR — 1/2" Abuse Resistant",
+      "58AR": "58AR — 5/8" Abuse Resistant",
+      "01GM": "01GM — Shaft Board (Glass Mat)",
+    };
+
+    return (
+      <div style={styles.shell}>
+        <div style={styles.header}>
+          <button onClick={() => { setScreen("home"); setIsPricingUnlocked(false); }} style={styles.backBtn}>←</button>
+          <div style={styles.headerTitle}>💲 Material Pricing</div>
+          <button onClick={resetPrices} style={{ background: "none", border: "1px solid #ef4444", borderRadius: 6, color: "#ef4444", fontSize: 11, fontWeight: 700, padding: "4px 8px", cursor: "pointer" }}>RESET</button>
+        </div>
+        <div style={{ ...styles.body, padding: "0 0 40px 0" }}>
+          <div style={{ padding: "10px 14px 4px", fontSize: 11, color: "#64748b" }}>
+            Tap any price to edit. Null = not available for that length. Prices per sheet (Shoemaker effective Feb 20, 2026).
+          </div>
+
+          {/* Column header */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 60px 60px 60px 60px", gap: 2, padding: "6px 12px", background: "#0f172a", borderBottom: "1px solid #1e293b", position: "sticky", top: 0, zIndex: 10 }}>
+            <div style={{ fontSize: 10, color: "#475569", fontWeight: 700 }}>MATERIAL</div>
+            {LENGTHS.map(l => <div key={l} style={{ fontSize: 10, color: "#475569", fontWeight: 700, textAlign: "center" }}>{l}</div>)}
+          </div>
+
+          {Object.keys(matLabels).map(code => (
+            <div key={code} style={{ borderBottom: "1px solid #1e293b" }}>
+              <div style={{ padding: "6px 12px 2px", fontSize: 11, color: "#94a3b8", fontWeight: 700, background: "#0d1a2a" }}>{matLabels[code]}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 60px 60px 60px 60px", gap: 2, padding: "4px 12px 8px" }}>
+                <div style={{ fontSize: 10, color: "#475569" }}>Shoemaker item</div>
+                {LENGTHS.map(len => {
+                  const price = sheetPrices?.[code]?.[len];
+                  const isNull = price === null || price === undefined;
+                  return (
+                    <div key={len}
+                      style={{ background: isNull ? "#0f172a" : "#1e293b", borderRadius: 4, padding: "4px 2px", textAlign: "center", cursor: isNull ? "default" : "pointer", fontSize: 12, color: isNull ? "#1e293b" : "#34d399", fontWeight: 600, border: isNull ? "1px solid #1a1a2e" : "1px solid #334155" }}
+                      onClick={() => {
+                        if (isNull) return;
+                        const v = prompt(`${code} ${len} price per sheet:`, String(price));
+                        if (v !== null && v.trim() !== "") {
+                          const n = parseFloat(v);
+                          if (!isNaN(n)) updatePrice(code, len, v);
+                        }
+                      }}
+                    >
+                      {isNull ? "—" : `$${price.toFixed(2)}`}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+
+          <div style={{ padding: 16, margin: 12, background: "#0d1a2a", borderRadius: 8, border: "1px solid #1e293b" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#f59e0b", marginBottom: 6 }}>📋 Future Price Updates</div>
+            <div style={{ fontSize: 11, color: "#64748b", lineHeight: 1.6 }}>
+              To update prices from a new Shoemaker price list:<br/>
+              1. Open Admin Pricing (password: MBDW2025P)<br/>
+              2. Tap each cell to enter the new per-sheet Variant Price<br/>
+              3. Changes save automatically to this device<br/>
+              4. Use RESET to restore Shoemaker Feb 2026 defaults
+            </div>
+          </div>
         </div>
       </div>
     );
