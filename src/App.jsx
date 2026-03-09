@@ -744,7 +744,42 @@ export default function TakeoffApp() {
       : `"Order: ${currentJob.name}"\n\n`;
 
     if (!withPricing) {
-      csv += `"INSTRUCTIONS: Fill in the UNIT PRICE ($/SQ FT) column for each material row, then save and import back using IMPORT NEW PRICING."\n\n`;
+      csv += `"INSTRUCTIONS: Fill in the UNIT PRICE column below (one price per material type). Save and import back using IMPORT NEW PRICING."\n\n`;
+
+      // Build unique material list across all areas
+      const usedMats = mats.filter(mat =>
+        currentJob.areas.some(area =>
+          LENGTHS.some(len => (area.data[mat]?.[len] || 0) > 0)
+        )
+      );
+      // Consolidated pricing sheet — one row per material type
+      csv += `"=== PRICING SHEET — FILL IN UNIT PRICES BELOW ==="\n`;
+      csv += `"Material","Total Sq Ft","$/SQ FT  ← FILL IN"\n`;
+      usedMats.forEach(mat => {
+        const totalSqft = currentJob.areas.reduce((s, area) =>
+          s + LENGTHS.reduce((ss, len) => ss + (area.data[mat]?.[len] || 0) * sheetWidth(mat) * lenFeet(len), 0), 0);
+        csv += `"${mat}",${Math.round(totalSqft)},""\n`;
+      });
+      csv += `\n`;
+
+      // Accessories pricing — one row per unique product
+      const usedAccessories2 = (currentJob.accessories || []).filter(a => a.qty > 0 || (a.lines && a.lines.some(l => l.qty > 0)));
+      if (usedAccessories2.length > 0) {
+        csv += `"=== ACCESSORY PRICING — FILL IN UNIT PRICES BELOW ==="\n`;
+        csv += `"Product","Unit","Unit Price  ← FILL IN"\n`;
+        const seenAcc = new Set();
+        usedAccessories2.forEach(a => {
+          const code = a.product.split(" ")[0];
+          if (seenAcc.has(code)) return;
+          seenAcc.add(code);
+          const priceData = DEFAULT_ACC_PRICES[code];
+          const unit = isBeadProduct(a.product) ? "$/ft" : `$/${priceData?.unit ?? "ea"}`;
+          csv += `"${a.product}","${unit}",""\n`;
+        });
+        csv += `\n`;
+      }
+
+      csv += `"=== ORDER DETAILS (READ ONLY) ==="\n\n`;
     }
 
     currentJob.areas.forEach((area) => {
@@ -753,7 +788,7 @@ export default function TakeoffApp() {
       if (withPricing) {
         csv += `"Material",${LENGTHS.map(l => `"${l}"`).join(",")},\"SHEET TOTAL\",\"SQ FT\",\"$/SQ FT\",\"TOTAL COST\"\n`;
       } else {
-        csv += `"Material",${LENGTHS.map(l => `"${l}"`).join(",")},\"SHEET TOTAL\",\"SQ FT\",\"$/SQ FT  ← FILL IN\",\"TOTAL COST\"\n`;
+        csv += `"Material",${LENGTHS.map(l => `"${l}"`).join(",")},\"SHEET TOTAL\",\"SQ FT\"\n`;
       }
       mats.forEach((mat) => {
         const rowData = LENGTHS.map((len) => area.data[mat]?.[len] || 0);
@@ -765,7 +800,7 @@ export default function TakeoffApp() {
           const totalCost = Math.round(sqft) * pricePsf;
           csv += `"${mat}",${rowData.join(",")},${sheetTotal},${Math.round(sqft)},${pricePsf.toFixed(4)},${totalCost.toFixed(2)}\n`;
         } else {
-          csv += `"${mat}",${rowData.join(",")},${sheetTotal},${Math.round(sqft)},,\n`;
+          csv += `"${mat}",${rowData.join(",")},${sheetTotal},${Math.round(sqft)}\n`;
         }
       });
       const totalSheets = areaTotal(area);
@@ -778,7 +813,7 @@ export default function TakeoffApp() {
         }, 0);
         csv += `"TOTALS",,,,${totalSheets},${totalSqFt},,${areaCost.toFixed(2)}\n\n`;
       } else {
-        csv += `"TOTALS",,,,${totalSheets},${totalSqFt},,\n\n`;
+        csv += `"TOTALS",,,,${totalSheets},${totalSqFt}\n\n`;
       }
     });
 
@@ -818,14 +853,14 @@ export default function TakeoffApp() {
           }
         });
       } else {
-        csv += `"Product","Qty","Placement","Unit Price  ← FILL IN","Total"\n`;
+        csv += `"Product","Qty","Placement"\n`;
         usedAccessories.forEach(a => {
           if (isBeadProduct(a.product) && a.lines?.length > 0) {
             a.lines.filter(l => l.qty > 0).forEach(l => {
-              csv += `"${a.product} (${l.qty}pc × ${l.length}ft)",${(l.qty||0)*(l.length||0)},"${a.placement || ""}","",""\n`;
+              csv += `"${a.product} (${l.qty}pc × ${l.length}ft)",${(l.qty||0)*(l.length||0)},"${a.placement || ""}"\n`;
             });
           } else {
-            csv += `"${a.product}",${a.qty},"${a.placement || ""}","",""\n`;
+            csv += `"${a.product}",${a.qty},"${a.placement || ""}"\n`;
           }
         });
       }
@@ -883,23 +918,28 @@ export default function TakeoffApp() {
         lines.forEach(line => {
           if (!line.trim()) return;
           const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, "").replace(/""/g, '"'));
-          // Board material rows: col[0]=material code/label, col[6]=$/sqft (withPricing export has 7 cols)
-          // Try to match material code from col[0]
           const maybeMatLabel = cols[0];
           const matCode = MATERIALS.find(m => maybeMatLabel.startsWith(m.split(" ")[0]))?.split(" ")[0];
-          if (matCode && cols[6] && !isNaN(parseFloat(cols[6]))) {
-            newSqft[matCode] = parseFloat(cols[6]);
-            count++;
+          if (matCode) {
+            // New format: col[2] = price (pricing sheet, 3 cols)
+            // Old format: col[6] = price (with-pricing export, 7 cols)
+            const price = parseFloat(cols[2]) || parseFloat(cols[6]);
+            if (!isNaN(price) && price > 0) {
+              newSqft[matCode] = price;
+              count++;
+            }
             return;
           }
-          // Accessory rows: col[0]=product, col[3]=unit price
+          // Accessory rows — new format: col[2] = price; old format: col[3] = price
           const accCode = Object.keys(DEFAULT_ACC_PRICES).find(code => maybeMatLabel.startsWith(code));
-          if (accCode && cols[3] && !isNaN(parseFloat(cols[3]))) {
-            newAcc[accCode] = { ...newAcc[accCode], price: parseFloat(cols[3]) };
-            count++;
+          if (accCode) {
+            const price = parseFloat(cols[2]) || parseFloat(cols[3]);
+            if (!isNaN(price) && price > 0) {
+              newAcc[accCode] = { ...newAcc[accCode], price };
+              count++;
+            }
           }
         });
-        // Save as job-level overrides (not global) — store in job's budgetPricing
         setJobs(prev => prev.map(j => j.id !== currentJobId ? j : {
           ...j,
           jobSqftPrices: newSqft,
@@ -2002,28 +2042,30 @@ export default function TakeoffApp() {
             const isManual = row.manualTotal !== false;
             return (
               <div key={row.id} style={{ borderBottom: "1px solid #1e293b", background: "#0d1a2a" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 72px 24px", alignItems: "center", padding: "8px 12px", gap: 4 }}>
-                  <input
-                    style={{ background: "transparent", border: "none", borderBottom: "1px solid #334155", color: "#e2e8f0", fontSize: 13, fontWeight: 600, padding: "2px 0", outline: "none" }}
-                    value={row.label}
-                    onChange={(e) => updateCustomLabour(row.id, "label", e.target.value)}
-                  />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 72px", alignItems: "center", padding: "4px 12px 4px 8px", gap: 4 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
+                    <button
+                      style={{ background: "none", border: "none", color: "#ef4444", fontSize: 18, cursor: "pointer", padding: "4px 4px", touchAction: "manipulation", flexShrink: 0, lineHeight: 1 }}
+                      onClick={() => deleteCustomLabour(row.id)}
+                    >✕</button>
+                    <input
+                      style={{ background: "transparent", border: "none", borderBottom: "1px solid #334155", color: "#e2e8f0", fontSize: 13, fontWeight: 600, padding: "2px 0", outline: "none", minWidth: 0, flex: 1 }}
+                      value={row.label}
+                      onChange={(e) => updateCustomLabour(row.id, "label", e.target.value)}
+                    />
+                  </div>
                   <button
-                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#94a3b8", textAlign: "right", padding: "12px 8px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#94a3b8", textAlign: "right", padding: "12px 4px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
                     onClick={() => openBudgetEdit(`Qty: ${row.label}`, row.qty, v => { updateCustomLabour(row.id, "qty", v); updateCustomLabour(row.id, "manualTotal", false); })}
                   >{row.qty}<span style={{ fontSize: 11, color: "#475569", marginLeft: 3 }}>✏</span></button>
                   <button
-                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#64748b", textAlign: "right", padding: "12px 8px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#64748b", textAlign: "right", padding: "12px 4px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
                     onClick={() => openBudgetEdit(`Rate: ${row.label}`, row.rate, v => { updateCustomLabour(row.id, "rate", v); updateCustomLabour(row.id, "manualTotal", false); })}
                   >${row.rate}<span style={{ fontSize: 11, color: "#475569", marginLeft: 3 }}>✏</span></button>
                   <button
-                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, color: isManual ? "#f59e0b" : "#34d399", textAlign: "right", padding: "12px 8px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, color: isManual ? "#f59e0b" : "#34d399", textAlign: "right", padding: "12px 4px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
                     onClick={() => openBudgetEdit(`Override Total: ${row.label}`, total.toFixed(2), v => updateCustomLabour(row.id, "manualTotal", v))}
                   >${total.toFixed(0)}{isManual && <span style={{ fontSize: 9, color: "#f59e0b", marginLeft: 2 }}>⚠️</span>}</button>
-                  <button
-                    style={{ background: "none", border: "none", color: "#ef4444", fontSize: 16, cursor: "pointer", padding: 0, textAlign: "center" }}
-                    onClick={() => deleteCustomLabour(row.id)}
-                  >✕</button>
                 </div>
               </div>
             );
