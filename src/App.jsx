@@ -2622,7 +2622,7 @@ export default function TakeoffApp() {
     return (
       <div style={styles.shell}>
         <div style={styles.header}>
-          <button onClick={() => { setScreen("home"); setIsPricingUnlocked(false); }} style={styles.backBtn}>←</button>
+          <button onClick={() => { setScreen("home"); setIsPricingUnlocked(false); }} style={styles.back}>←</button>
           <div style={styles.headerTitle}>💲 Material Pricing</div>
           <button onClick={resetPrices} style={{ background: "none", border: "1px solid #ef4444", borderRadius: 6, color: "#ef4444", fontSize: 11, fontWeight: 700, padding: "4px 8px", cursor: "pointer" }}>RESET</button>
         </div>
