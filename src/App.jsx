@@ -218,7 +218,7 @@ const initJob = (name, jobNumber = "", type = "single") => ({
   ...(type === "budget" ? { budgetPricing: initBudgetPricing() } : {}),
 });
 
-// ─── PRICING COMPONENTS (module-level so hooks work correctly) ───────────────
+// ─── STYLES ─────────────────────────────────────────────────────────────────
 const styles = {
   shell: {
     height: "100%",
@@ -617,9 +617,10 @@ const styles = {
   },
 };
 
+// ─── MODULE-LEVEL COMPONENTS ──────────────────────────────────────────────────
 function PricingRow({ code, label, price, defaultPrice, unit, onSave }) {
-  const [editing, setEditing] = React.useState(false);
-  const [val, setVal] = React.useState("");
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState("");
   const isCustom = price !== defaultPrice;
   const startEdit = () => { setVal(String(price)); setEditing(true); };
   const commit = () => {
@@ -660,7 +661,7 @@ function PricingRow({ code, label, price, defaultPrice, unit, onSave }) {
 }
 
 function PricingSection({ title, count, children }) {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = useState(false);
   return (
     <div style={{ borderBottom: "2px solid #1e293b" }}>
       <button
@@ -1051,7 +1052,7 @@ export default function TakeoffApp() {
       return;
     }
     const job = initJob(newJobName.trim(), newJobNumber.trim(), newJobType);
-    setJobs((prev) => [...prev, job]);
+    setJobs((prev) => [job, ...prev]);
     setNewJobName("");
     setNewJobNumber("");
     setNewJobType("single");
@@ -1104,7 +1105,7 @@ export default function TakeoffApp() {
       name: source.name + " (Copy)",
       areas: source.areas.map(a => ({ ...JSON.parse(JSON.stringify(a)), id: generateId() })),
     };
-    setJobs(prev => [...prev, newJob]);
+    setJobs(prev => [newJob, ...prev]);
     showToast("✅ Job duplicated!");
   };
 
@@ -1590,8 +1591,12 @@ export default function TakeoffApp() {
                     <div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <div style={styles.jobName}>{job.name}</div>
-                        <span style={{ ...styles.typeBadge, background: job.type === "multi" ? "#7c3aed22" : "#0369a122", color: job.type === "multi" ? "#a78bfa" : "#38bdf8", borderColor: job.type === "multi" ? "#7c3aed44" : "#0369a144" }}>
-                          {job.type === "multi" ? "MULTI" : "SINGLE"}
+                        <span style={{ ...styles.typeBadge,
+                            background: job.type === "multi" ? "#7c3aed22" : job.type === "budget" ? "#06402022" : "#0369a122",
+                            color: job.type === "multi" ? "#a78bfa" : job.type === "budget" ? "#34d399" : "#38bdf8",
+                            borderColor: job.type === "multi" ? "#7c3aed44" : job.type === "budget" ? "#06402044" : "#0369a144"
+                          }}>
+                          {job.type === "multi" ? "MULTI" : job.type === "budget" ? "BUDGET" : "SINGLE"}
                         </span>
                       </div>
                       <div style={styles.jobMeta}>
@@ -2140,6 +2145,33 @@ export default function TakeoffApp() {
       }));
     };
 
+    const addOptionalItem = () => {
+      setJobs(prev => prev.map(j => {
+        if (j.id !== currentJobId) return j;
+        const newBP = JSON.parse(JSON.stringify(j.budgetPricing || initBudgetPricing()));
+        newBP.optionalItems = [...(newBP.optionalItems || []), { id: Date.now().toString(), label: "Optional Item", cost: 0 }];
+        return { ...j, budgetPricing: newBP };
+      }));
+    };
+
+    const updateOptionalItem = (id, field, value) => {
+      setJobs(prev => prev.map(j => {
+        if (j.id !== currentJobId) return j;
+        const newBP = JSON.parse(JSON.stringify(j.budgetPricing || initBudgetPricing()));
+        newBP.optionalItems = (newBP.optionalItems || []).map(r => r.id === id ? { ...r, [field]: value } : r);
+        return { ...j, budgetPricing: newBP };
+      }));
+    };
+
+    const deleteOptionalItem = (id) => {
+      setJobs(prev => prev.map(j => {
+        if (j.id !== currentJobId) return j;
+        const newBP = JSON.parse(JSON.stringify(j.budgetPricing || initBudgetPricing()));
+        newBP.optionalItems = (newBP.optionalItems || []).filter(r => r.id !== id);
+        return { ...j, budgetPricing: newBP };
+      }));
+    };
+
     // Computed totals (unless manually overridden)
     const rows = {
       resBar:       { label: "Res Bar / Angle",  qty: resBarAutoQty,        rate: bp.resBar.rate,           total: bp.resBar.manualTotal !== false ? bp.resBar.manualTotal : resBarAutoQty * bp.resBar.rate },
@@ -2232,6 +2264,9 @@ export default function TakeoffApp() {
     const profitAmt = subTotal * (bp.profit.pct / 100);
     const pstAmt = (materialCost + accessoryCost) * 0.07;
     const totalQuote = materialCost + accessoryCost + cartage + pstAmt + subTotal + ohAmt + profitAmt;
+    const optionalItems = bp.optionalItems || [];
+    const ohPlusProfitMultiplier = 1 + (bp.overhead.pct / 100) + (bp.profit.pct / 100);
+    const optionalItemsTotal = optionalItems.reduce((s, item) => s + (Number(item.cost) || 0) * ohPlusProfitMultiplier, 0);
 
 
 
@@ -2282,6 +2317,16 @@ export default function TakeoffApp() {
       row(`Profit (${bp.profit.pct}%)`, "", "", profitAmt.toFixed(2));
       row("");
       row("TOTAL QUOTE", "", "", totalQuote.toFixed(2));
+      if ((bp.optionalItems || []).length > 0) {
+        row("");
+        row("OPTIONAL ITEMS");
+        row("Item", "Cost", `OH+Profit (${bp.overhead.pct + bp.profit.pct}%)`, "Price");
+        (bp.optionalItems || []).forEach(item => {
+          const price = (Number(item.cost) || 0) * ohPlusProfitMultiplier;
+          row(item.label, (Number(item.cost) || 0).toFixed(2), "", price.toFixed(2));
+        });
+        row("Optional Items Total", "", "", optionalItemsTotal.toFixed(2));
+      }
 
       const csv = lines.join("\n");
       const blob = new Blob([csv], { type: "text/csv" });
@@ -2304,7 +2349,10 @@ export default function TakeoffApp() {
             onClick={exportBudgetCSV}
             style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 7, color: "#60a5fa", fontSize: 11, fontWeight: 700, padding: "5px 10px", cursor: "pointer", whiteSpace: "nowrap" }}
           >⬇ Export Budget</button>
-          <div style={{ fontSize: 13, fontWeight: 800, color: "#34d399", marginLeft: 8 }}>${totalQuote.toFixed(0)}</div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginLeft: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#34d399" }}>${totalQuote.toFixed(0)}</div>
+            {optionalItems.length > 0 && <div style={{ fontSize: 10, color: "#a78bfa", fontWeight: 700 }}>+${optionalItemsTotal.toFixed(0)} opt</div>}
+          </div>
         </div>
 
         <div ref={budgetScrollRef} style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
@@ -2545,6 +2593,44 @@ export default function TakeoffApp() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", padding: "14px 12px", background: "#0d1526" }}>
             <div style={{ fontSize: 15, fontWeight: 900, color: "#f1f5f9" }}>TOTAL QUOTE</div>
             <div style={{ fontSize: 18, fontWeight: 900, color: "#34d399", textAlign: "right" }}>${totalQuote.toFixed(0)}</div>
+          </div>
+
+          {/* OPTIONAL ITEMS */}
+          <div style={{ borderTop: "2px solid #1e293b", marginTop: 4 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", padding: "12px 12px 6px", background: "#0a1628" }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#94a3b8", letterSpacing: "0.05em" }}>OPTIONAL ITEMS</div>
+              {optionalItems.length > 0 && <div style={{ fontSize: 14, fontWeight: 800, color: "#a78bfa", textAlign: "right" }}>${optionalItemsTotal.toFixed(0)}</div>}
+            </div>
+
+            {optionalItems.map((item) => {
+              const price = (Number(item.cost) || 0) * ohPlusProfitMultiplier;
+              return (
+                <div key={item.id} style={{ borderBottom: "1px solid #1e293b", background: "#0a1628" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 90px", alignItems: "center", padding: "0 12px 0 8px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
+                      <button style={{ background: "none", border: "none", color: "#ef4444", fontSize: 18, cursor: "pointer", padding: "4px", touchAction: "manipulation", flexShrink: 0, lineHeight: 1 }} onClick={() => deleteOptionalItem(item.id)}>✕</button>
+                      <input
+                        style={{ background: "transparent", border: "none", borderBottom: "1px solid #334155", color: "#e2e8f0", fontSize: 13, fontWeight: 600, padding: "2px 0", outline: "none", minWidth: 0, flex: 1 }}
+                        value={item.label}
+                        onChange={(e) => updateOptionalItem(item.id, "label", e.target.value)}
+                      />
+                    </div>
+                    <button
+                      style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#64748b", textAlign: "right", padding: "12px 0 12px 4px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent", fontFamily: "inherit" }}
+                      onClick={() => openBudgetEdit(`Cost: ${item.label}`, item.cost, v => updateOptionalItem(item.id, "cost", v))}
+                    >cost ${(Number(item.cost) || 0).toFixed(0)}</button>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#a78bfa", textAlign: "right", padding: "12px 0" }}>${price.toFixed(0)}</div>
+                  </div>
+                </div>
+              );
+            })}
+
+            <div style={{ padding: "8px 12px" }}>
+              <button
+                style={{ background: "#160d2a", border: "1px dashed #a78bfa", borderRadius: 8, color: "#a78bfa", fontSize: 13, fontWeight: 700, padding: "8px 16px", cursor: "pointer", width: "100%", touchAction: "manipulation" }}
+                onClick={addOptionalItem}
+              >＋ Add Optional Item</button>
+            </div>
           </div>
 
           <div style={{ padding: "8px 12px 24px" }}>
