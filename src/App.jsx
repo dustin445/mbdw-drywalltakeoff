@@ -337,6 +337,14 @@ function BPRow({ rowKey, row, qtyEditable = false, qtyPath = null, showNoTape = 
 }
 
 export default function TakeoffApp() {
+  // Fix full-height layout on mobile — must be 100dvh not 100vh
+  React.useEffect(() => {
+    const style = document.createElement("style");
+    style.textContent = "html,body,#root{height:100%;margin:0;padding:0;overflow:hidden;}";
+    document.head.appendChild(style);
+    return () => document.head.removeChild(style);
+  }, []);
+
   // Load from localStorage on first render
   const [screen, setScreen] = useState("home");
   const [jobs, setJobs] = useState(() => {
@@ -2703,7 +2711,8 @@ function Modal({ title, onClose, children, tall }) {
 // ─── STYLES ──────────────────────────────────────────────────────────────────
 const styles = {
   shell: {
-    minHeight: "100vh",
+    height: "100dvh",
+    maxHeight: "100dvh",
     background: "#0a0f1e",
     color: "#e2e8f0",
     fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
@@ -2714,6 +2723,7 @@ const styles = {
     margin: "0 auto",
     position: "relative",
     boxSizing: "border-box",
+    overflow: "hidden",
   },
   header: {
     background: "#0d1526",
