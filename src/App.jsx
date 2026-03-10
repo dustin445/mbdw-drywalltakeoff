@@ -90,6 +90,8 @@ const DEFAULT_ACC_PRICES = {
   "PB58A9":   { price: 0.456, unit: "ft"   },  // CGC-B458 456.00/MLF → $0.456/ft
   "VB41":     { price: 0.397, unit: "ft"   },  // TT-4110 $3.97/10' → $0.397/ft
   "VB9000":   { price: 0.329, unit: "ft"   },  // TT-9000 $3.29/10' → $0.329/ft
+  "B412":     { price: 0.456, unit: "ft"   },  // CGC-B412 456.00/MLF → $0.456/ft
+  "B458":     { price: 0.456, unit: "ft"   },  // CGC-B458 456.00/MLF → $0.456/ft
   // Metal & Track
   "MS18RES":  { price: 3.95,   unit: "pc"   },  // SRC-18 12' — Resilient Channel
   "MS18124":  { price: 3.25,   unit: "pc"   },  // 125150SA-18 10' — 1-1/4\"x1-1/2\" Angle
@@ -148,6 +150,8 @@ const ACCESSORIES = {
     "PB58A9 (5/8\" PAPER J)",
     "VB41 (ARCHWAY CORNER BEAD)",
     "VB9000 (FLAT TEAR AWAY BEAD)",
+    "B412 (1/2\" L-TRIM - BEADEX)",
+    "B458 (5/8\" L-TRIM - BEADEX)",
   ],
   "Metal & Track": [
     "MS18RES (25G RESILIENT CHANNEL 12')",
@@ -170,7 +174,7 @@ const ALL_ACCESSORIES = Object.values(ACCESSORIES).flat();
 // Beads & Trim products that use line-item (qty × length) entry
 // RPLL100 (Level Line) is excluded — it stays as a roll qty
 const BEAD_PRODUCTS = [
-  "PBTBD", "B1XW", "PJC58", "PJC12", "PBB9", "PB58A9", "VB41", "VB9000",
+  "PBTBD", "B1XW", "PJC58", "PJC12", "PBB9", "PB58A9", "VB41", "VB9000", "B412", "B458",
 ];
 const isBeadProduct = (product) => BEAD_PRODUCTS.some(code => product.startsWith(code));
 
@@ -191,7 +195,7 @@ const initAreaData = () => {
 };
 
 const initBudgetPricing = () => ({
-  resBar: { qty: 0, rate: 0.25, manualQty: false, manualTotal: false },
+  resBar: { qty: 0, rate: 0.34, manualQty: false, manualTotal: false, section: "General" },
   boarding: { rate: 0.35, manualTotal: false },
   scrap: { rate: 0.06, manualTotal: false },
   beading: { qty: 0, rate: 0.80, manualQty: false, manualTotal: false },
@@ -199,8 +203,8 @@ const initBudgetPricing = () => ({
   customLabour: [],
   boardingDrive: { rate: 65, manualTotal: false },
   tapingDrive: { rate: 50, manualTotal: false },
-  management: { trips: 3, costPerTrip: 150, manualTotal: false },
-  warranty: { qty: 0, rate: 50, manualTotal: false },
+  management: { trips: 5, costPerTrip: 150, manualTotal: false },
+  warranty: { qty: 0, rate: 50, manualQty: false, manualTotal: false },
   scaffold: { qty: 1, rate: 500, manualTotal: false },
   overhead: { pct: 10 },
   profit: { pct: 15 },
@@ -681,7 +685,8 @@ function PricingSection({ title, count, children }) {
 
 // ─── BUDGET ROW COMPONENT (module-level) ─────────────────────────────────────
 function BPRow({ rowKey, row, qtyEditable = false, qtyPath = null, showNoTape = false,
-                 budgetPricing, bp, updateBP, openBudgetEdit, noTapeFootage, inputStyle }) {
+                 budgetPricing, bp, updateBP, openBudgetEdit, noTapeFootage, inputStyle,
+                 tileBackerSqFt = 0, showResBarSection = false }) {
   const isManual = (budgetPricing?.[rowKey]?.manualTotal !== false && budgetPricing?.[rowKey]?.manualTotal !== undefined) ||
     (bp[rowKey]?.manualTotal !== false && bp[rowKey]?.manualTotal !== undefined);
   const manualQty = budgetPricing?.[rowKey]?.manualQty;
@@ -714,15 +719,38 @@ function BPRow({ rowKey, row, qtyEditable = false, qtyPath = null, showNoTape = 
         >${(row.total || 0).toFixed(0)}</button>
       </div>
       {showNoTape && (
+        <div style={{ padding: "4px 12px 8px", borderTop: "1px solid #0f172a" }}>
+          {tileBackerSqFt > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <span style={{ fontSize: 11, color: "#34d399" }}>Tile backer auto-deducted:</span>
+              <span style={{ fontSize: 11, color: "#34d399", fontWeight: 700 }}>−{tileBackerSqFt} ft²</span>
+            </div>
+          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 11, color: "#475569", flex: 1 }}>No-tape footage:</span>
+            <input
+              type="number"
+              min="0"
+              style={{ ...inputStyle, marginBottom: 0, width: 90, padding: "4px 8px", fontSize: 12, textAlign: "right" }}
+              value={noTapeFootage || 0}
+              onChange={(e) => updateBP("taping.noTapeFootage", parseFloat(e.target.value) || 0)}
+            />
+          </div>
+        </div>
+      )}
+      {showResBarSection && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 12px 8px", borderTop: "1px solid #0f172a" }}>
-          <span style={{ fontSize: 11, color: "#475569", flex: 1 }}>No-tape footage:</span>
-          <input
-            type="number"
-            min="0"
-            style={{ ...inputStyle, marginBottom: 0, width: 90, padding: "4px 8px", fontSize: 12, textAlign: "right" }}
-            value={noTapeFootage || 0}
-            onChange={(e) => updateBP("taping.noTapeFootage", parseFloat(e.target.value) || 0)}
-          />
+          <span style={{ fontSize: 11, color: "#475569", flex: 1 }}>Install section:</span>
+          <select
+            style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 6, color: "#e2e8f0", fontSize: 12, padding: "4px 8px", outline: "none" }}
+            value={bp.resBar?.section || "General"}
+            onChange={(e) => updateBP("resBar.section", e.target.value)}
+          >
+            <option value="General">General</option>
+            <option value="Direct House">Direct House</option>
+            <option value="Resilient Only">Resilient Only</option>
+            <option value="Mixed">Mixed</option>
+          </select>
         </div>
       )}
     </div>
@@ -1157,6 +1185,10 @@ export default function TakeoffApp() {
       ? `"Job #: ${currentJob.jobNumber}"\n"Order: ${currentJob.name}"\n\n`
       : `"Order: ${currentJob.name}"\n\n`;
 
+    if (withPricing && currentJob.notes?.trim()) {
+      csv += `"SITE NOTES"\n"${currentJob.notes.replace(/"/g, '""').replace(/\n/g, " | ")}"\n\n`;
+    }
+
     if (!withPricing) {
       csv += `"INSTRUCTIONS: Fill in the UNIT PRICE column below (one price per material type). Save and import back using IMPORT NEW PRICING."\n\n`;
 
@@ -1233,17 +1265,15 @@ export default function TakeoffApp() {
 
     const grandSheets = currentJob.areas.reduce((s, a) => s + areaTotal(a), 0);
     const grandSqFt = currentJob.areas.reduce((s, a) => s + areaSqFt(a, mats), 0);
-    csv += `"JOB TOTAL SHEETS",${grandSheets}\n`;
-    csv += `"JOB TOTAL SQ FT",${grandSqFt}\n`;
+    csv += `"BOARD TOTAL SHEETS",${grandSheets}\n`;
+    csv += `"BOARD TOTAL SQ FT",${grandSqFt}\n`;
     if (withPricing) {
-      const grandCost = mats.reduce((s, mat) => {
-        const pricePsf = getSqftPrice(sqftPrices, mat) ?? 0;
-        return s + currentJob.areas.reduce((as, area) => {
-          const sqft = LENGTHS.reduce((ss, len) => ss + (area.data[mat]?.[len] || 0) * sheetWidth(mat) * lenFeet(len), 0);
-          return as + sqft * pricePsf;
-        }, 0);
-      }, 0);
-      csv += `"JOB TOTAL MATERIAL COST",$${grandCost.toFixed(2)}\n`;
+      const cartageForTotals = currentJob.budgetPricing?.cartage?.manualTotal !== undefined
+        ? currentJob.budgetPricing.cartage.manualTotal
+        : grandSqFt > 0 ? Math.max(250, grandSqFt * 0.065) : 0;
+      if (cartageForTotals > 0) {
+        csv += `"CARTAGE","$${cartageForTotals.toFixed(2)}"\n`;
+      }
     }
     csv += "\n";
 
@@ -1252,6 +1282,7 @@ export default function TakeoffApp() {
       csv += `"ACCESSORIES & SUPPLIES"\n`;
       if (withPricing) {
         csv += `"Product","Qty","Placement","Unit Price","Total"\n`;
+        let accTotal = 0;
         usedAccessories.forEach(a => {
           const code = a.product.split(" ")[0];
           const priceData = accPrices?.[code] ?? DEFAULT_ACC_PRICES[code];
@@ -1259,13 +1290,32 @@ export default function TakeoffApp() {
             a.lines.filter(l => l.qty > 0).forEach(l => {
               const ft = (l.qty || 0) * (l.length || 0);
               const cost = ft * (priceData?.price ?? 0);
+              accTotal += cost;
               csv += `"${a.product} (${l.qty}pc × ${l.length}ft)",${ft},"${a.placement || ""}",${(priceData?.price ?? 0).toFixed(4)},${cost.toFixed(2)}\n`;
             });
           } else {
             const cost = (a.qty || 0) * (priceData?.price ?? 0);
+            accTotal += cost;
             csv += `"${a.product}",${a.qty},"${a.placement || ""}",${(priceData?.price ?? 0).toFixed(4)},${cost.toFixed(2)}\n`;
           }
         });
+        csv += `"ACCESSORIES TOTAL","","","","$${accTotal.toFixed(2)}"\n`;
+        csv += `\n`;
+
+        // Combined total material cost
+        const grandBoardCost = mats.reduce((s, mat) => {
+          const pricePsf = getSqftPrice(sqftPrices, mat) ?? 0;
+          return s + currentJob.areas.reduce((as, area) => {
+            const sqft = LENGTHS.reduce((ss, len) => ss + (area.data[mat]?.[len] || 0) * sheetWidth(mat) * lenFeet(len), 0);
+            return as + sqft * pricePsf;
+          }, 0);
+        }, 0);
+        const cartageForTotal = currentJob.budgetPricing?.cartage?.manualTotal !== undefined
+          ? currentJob.budgetPricing.cartage.manualTotal
+          : grandSqFt > 0 ? Math.max(250, grandSqFt * 0.065) : 0;
+        const totalMaterialCost = grandBoardCost + accTotal + cartageForTotal;
+        csv += `"TOTAL MATERIAL COST (boards + accessories + cartage)","","","","$${totalMaterialCost.toFixed(2)}"\n`;
+        csv += `\n`;
       } else {
         csv += `"Product","Qty","Placement"\n`;
         usedAccessories.forEach(a => {
@@ -1280,7 +1330,108 @@ export default function TakeoffApp() {
       }
     }
 
-    const filename = `${currentJob.name.replace(/\s+/g, "_")}_${withPricing ? "order_pricing" : "order_for_pricing"}.csv`;
+    // ── MPR LABOUR BUDGET SECTION (budget jobs only) ────────────────────────
+    if (withPricing && currentJob.budgetPricing) {
+      const xbp = currentJob.budgetPricing || initBudgetPricing();
+      const mprMats = selectedMaterials.length > 0 ? selectedMaterials : MATERIALS;
+      const xTotalSqFt = currentJob.areas.reduce((s, a) => {
+        let sqft = 0;
+        mprMats.forEach(mat => LENGTHS.forEach(len => { sqft += (a?.data[mat]?.[len] || 0) * sheetWidth(mat) * lenFeet(len); }));
+        return s + sqft;
+      }, 0);
+      const xBoardingFt = xTotalSqFt;
+      const xTileBackerSqFt = currentJob.areas.reduce((sum, area) => {
+        let tbSqft = 0;
+        ["12TB (1/2\" TILEBACKER)", "58TB (5/8\" TILEBACKER)"].forEach(mat => {
+          LENGTHS.forEach(len => { tbSqft += (area?.data?.[mat]?.[len] || 0) * sheetWidth(mat) * lenFeet(len); });
+        });
+        return sum + tbSqft;
+      }, 0);
+      const xTapingFt = Math.max(0, xBoardingFt - xTileBackerSqFt - (xbp.taping?.noTapeFootage || 0));
+      const xResBarQty = (currentJob.accessories || []).find(a => a.product.startsWith("MS18RES"))?.qty || 0;
+      const xResBarAutoQty = xbp.resBar?.manualQty ? xbp.resBar.qty : xResBarQty * 12;
+      const xBoardingDriveQty = Math.ceil(xBoardingFt / 3000);
+      const xTapingDriveQty = Math.ceil(xTapingFt / 3000);
+      const xWarrantyQty = xbp.warranty?.manualQty ? xbp.warranty.qty : Math.round(xBoardingFt / 1000);
+
+      const xRows = [
+        { label: "Res Bar / Angle" + (xbp.resBar?.section && xbp.resBar.section !== "General" ? ` [${xbp.resBar.section}]` : ""), qty: xResBarAutoQty, rate: xbp.resBar?.rate ?? 0.34, manualTotal: xbp.resBar?.manualTotal },
+        { label: "Boarding",        qty: xBoardingFt,       rate: xbp.boarding?.rate ?? 0.35,  manualTotal: xbp.boarding?.manualTotal },
+        { label: "Scrap",           qty: xBoardingFt,       rate: xbp.scrap?.rate ?? 0.06,     manualTotal: xbp.scrap?.manualTotal },
+        { label: "Beading",         qty: xbp.beading?.manualQty ? xbp.beading.qty : Math.round(xTapingFt * 0.115), rate: xbp.beading?.rate ?? 0.80, manualTotal: xbp.beading?.manualTotal },
+        { label: "Taping" + (xTileBackerSqFt > 0 ? ` (${Math.round(xTileBackerSqFt)} ft² tile backer deducted)` : ""), qty: xTapingFt, rate: xbp.taping?.rate ?? 0.40, manualTotal: xbp.taping?.manualTotal },
+        { label: "Boarding Drive",  qty: xBoardingDriveQty, rate: xbp.boardingDrive?.rate ?? 65, manualTotal: xbp.boardingDrive?.manualTotal },
+        { label: "Taping Drive",    qty: xTapingDriveQty,   rate: xbp.tapingDrive?.rate ?? 50,  manualTotal: xbp.tapingDrive?.manualTotal },
+        { label: "Management",      qty: xbp.management?.trips ?? 5, rate: xbp.management?.costPerTrip ?? 150, manualTotal: xbp.management?.manualTotal },
+        { label: "Warranty",        qty: xWarrantyQty,      rate: xbp.warranty?.rate ?? 50,    manualTotal: xbp.warranty?.manualTotal },
+        { label: "Scaffold",        qty: xbp.scaffold?.qty ?? 0, rate: xbp.scaffold?.rate ?? 500, manualTotal: xbp.scaffold?.manualTotal },
+      ];
+      const xCustomRows = xbp.customLabour || [];
+
+      const labourTotal = xRows.reduce((s, r) => {
+        const t = r.manualTotal !== false && r.manualTotal !== undefined ? r.manualTotal : r.qty * r.rate;
+        return s + t;
+      }, 0) + xCustomRows.reduce((s, r) => s + (r.manualTotal !== false && r.manualTotal !== undefined ? r.manualTotal : r.qty * r.rate), 0);
+
+      // MPR material costs for OH/profit base
+      const xMaterialCost = (() => {
+        let total = 0;
+        const xMats = selectedMaterials.length > 0 ? selectedMaterials : MATERIALS;
+        currentJob.areas.forEach(area => {
+          xMats.forEach(mat => {
+            LENGTHS.forEach(len => {
+              const qty = area?.data[mat]?.[len] || 0;
+              if (qty > 0) {
+                const pricePsf = getSqftPrice(sqftPrices, mat);
+                if (pricePsf !== null) total += qty * sheetSqft(mat, len) * pricePsf;
+              }
+            });
+          });
+        });
+        return total;
+      })();
+      const xAccessoryCost = (() => {
+        let total = 0;
+        (currentJob.accessories || []).forEach(a => {
+          const code = a.product.split(" ")[0];
+          const priceData = accPrices?.[code] ?? DEFAULT_ACC_PRICES[code];
+          if (!priceData) return;
+          if (isBeadProduct(a.product) && a.lines?.length > 0) {
+            a.lines.forEach(l => { total += (Number(l.qty)||0) * (Number(l.length)||0) * (priceData.price||0); });
+          } else {
+            total += (a.qty||0) * (priceData.price||0);
+          }
+        });
+        return total;
+      })();
+      const xCartage = (() => {
+        if (xbp.cartage?.manualTotal !== undefined) return xbp.cartage.manualTotal;
+        const raw = xBoardingFt * 0.065;
+        return xBoardingFt > 0 ? Math.max(250, raw) : 0;
+      })();
+      const xOhProfitBase = xMaterialCost + xAccessoryCost + xCartage + labourTotal;
+      const xOhAmt = xOhProfitBase * ((xbp.overhead?.pct ?? 10) / 100);
+      const xProfitAmt = xOhProfitBase * ((xbp.profit?.pct ?? 15) / 100);
+
+      csv += `\n"=== LABOUR BUDGET ==="\n`;
+      csv += `"Item","Qty","Rate","Total"\n`;
+      xRows.forEach(r => {
+        if (r.qty === 0 && (r.manualTotal === false || r.manualTotal === undefined)) return;
+        const total = r.manualTotal !== false && r.manualTotal !== undefined ? r.manualTotal : r.qty * r.rate;
+        if (total === 0) return;
+        csv += `"${r.label}",${r.qty},"$${Number(r.rate).toFixed(2)}","$${total.toFixed(2)}"\n`;
+      });
+      xCustomRows.forEach(r => {
+        const total = r.manualTotal !== false && r.manualTotal !== undefined ? r.manualTotal : r.qty * r.rate;
+        csv += `"${r.label}",${r.qty},"$${Number(r.rate).toFixed(2)}","$${total.toFixed(2)}"\n`;
+      });
+      csv += `"Labour Sub Total","","","$${labourTotal.toFixed(2)}"\n`;
+      csv += `"Overhead (${xbp.overhead?.pct ?? 10}% on mat+labour)","","","$${xOhAmt.toFixed(2)}"\n`;
+      csv += `"Profit (${xbp.profit?.pct ?? 15}% on mat+labour)","","","$${xProfitAmt.toFixed(2)}"\n`;
+      csv += `\n`;
+    }
+
+    const filename = `${currentJob.name.replace(/\s+/g, "_")}_${withPricing ? "MPR" : "order_for_pricing"}.csv`;
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
 
     // Try Web Share API first (best on Android)
@@ -1756,7 +1907,7 @@ export default function TakeoffApp() {
           <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
             <div style={{ display: "flex", gap: 4 }}>
               <button style={{ fontSize: 10, fontWeight: 700, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", whiteSpace: "nowrap", background: "#0e7490", color: "#fff" }} onClick={() => exportToCSV(false)}>EXPORT W/OUT PRICING</button>
-              <button style={{ fontSize: 10, fontWeight: 700, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", whiteSpace: "nowrap", background: "#2563eb", color: "#fff" }} onClick={() => exportToCSV(true)}>EXPORT W/ PRICING</button>
+              <button style={{ fontSize: 10, fontWeight: 700, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", whiteSpace: "nowrap", background: "#2563eb", color: "#fff" }} onClick={() => exportToCSV(true)}>MPR EXPORT</button>
             </div>
             <div style={{ display: "flex", gap: 4, justifyContent: "flex-end", width: "100%" }}>
               <button
@@ -2096,7 +2247,18 @@ export default function TakeoffApp() {
     const effectiveAccPrices = currentJob?.jobAccPrices ?? accPrices;
 
     const boardingFootage = totalSqFt;
-    const tapingFootage = Math.max(0, boardingFootage - (bp.taping.noTapeFootage || 0));
+    // Tile backer (12TB, 58TB) sqft — excluded from taping since tile areas don't get taped
+    const tileBackerSqFt = (currentJob?.areas || []).reduce((sum, area) => {
+      let tbSqft = 0;
+      ["12TB (1/2\" TILEBACKER)", "58TB (5/8\" TILEBACKER)"].forEach(mat => {
+        LENGTHS.forEach(len => {
+          const qty = area?.data?.[mat]?.[len] || 0;
+          tbSqft += qty * sheetWidth(mat) * lenFeet(len);
+        });
+      });
+      return sum + tbSqft;
+    }, 0);
+    const tapingFootage = Math.max(0, boardingFootage - tileBackerSqFt - (bp.taping.noTapeFootage || 0));
 
     // Res bar auto-calc: MS18RES qty × 12' (unless manually overridden)
     const resBarAccessoryQty = (currentJob?.accessories || []).find(a => a.product.startsWith("MS18RES"))?.qty || 0;
@@ -2182,7 +2344,7 @@ export default function TakeoffApp() {
       boardingDrive:{ label: "Boarding Drive",    qty: boardingDriveQty,     rate: bp.boardingDrive.rate,    total: bp.boardingDrive.manualTotal !== false ? bp.boardingDrive.manualTotal : boardingDriveQty * bp.boardingDrive.rate },
       tapingDrive:  { label: "Taping Drive",      qty: tapingDriveQty,       rate: bp.tapingDrive.rate,      total: bp.tapingDrive.manualTotal !== false ? bp.tapingDrive.manualTotal : tapingDriveQty * bp.tapingDrive.rate },
       management:   { label: "Management",        qty: bp.management.trips,  rate: bp.management.costPerTrip,total: bp.management.manualTotal !== false ? bp.management.manualTotal : bp.management.trips * bp.management.costPerTrip },
-      warranty:     { label: "Warranty",          qty: bp.warranty.qty,      rate: bp.warranty.rate,         total: bp.warranty.manualTotal !== false ? bp.warranty.manualTotal : bp.warranty.qty * bp.warranty.rate },
+      warranty:     { label: "Warranty",          qty: bp.warranty.manualQty ? bp.warranty.qty : Math.round(boardingFootage / 1000), rate: bp.warranty.rate, total: bp.warranty.manualTotal !== false ? bp.warranty.manualTotal : (bp.warranty.manualQty ? bp.warranty.qty : Math.round(boardingFootage / 1000)) * bp.warranty.rate },
       scaffold:     { label: "Scaffold",          qty: bp.scaffold.qty,      rate: bp.scaffold.rate,         total: bp.scaffold.manualTotal !== false ? bp.scaffold.manualTotal : bp.scaffold.qty * bp.scaffold.rate },
     };
 
@@ -2260,9 +2422,10 @@ export default function TakeoffApp() {
       return rows;
     })();
 
-    const ohAmt = subTotal * (bp.overhead.pct / 100);
-    const profitAmt = subTotal * (bp.profit.pct / 100);
     const pstAmt = (materialCost + accessoryCost) * 0.07;
+    const ohProfitBase = materialCost + accessoryCost + cartage + subTotal;
+    const ohAmt = ohProfitBase * (bp.overhead.pct / 100);
+    const profitAmt = ohProfitBase * (bp.profit.pct / 100);
     const totalQuote = materialCost + accessoryCost + cartage + pstAmt + subTotal + ohAmt + profitAmt;
     const optionalItems = bp.optionalItems || [];
     const ohPlusProfitMultiplier = 1 + (bp.overhead.pct / 100) + (bp.profit.pct / 100);
@@ -2306,15 +2469,22 @@ export default function TakeoffApp() {
       row("");
       row("LABOUR BUDGET");
       row("Item", "Qty", "Rate", "Total");
-      Object.values(rows).forEach(r => { if (r.total > 0 || r.qty > 0) row(r.label, r.qty, `$${r.rate.toFixed(2)}`, r.total.toFixed(2)); });
+      Object.values(rows).forEach(r => {
+        if (r.total > 0 || r.qty > 0) {
+          let label = r.label;
+          if (r.label === "Taping" && tileBackerSqFt > 0) label += ` (${Math.round(tileBackerSqFt)} ft² tile backer deducted)`;
+          if (r.label === "Res Bar / Angle" && bp.resBar?.section && bp.resBar.section !== "General") label += ` [${bp.resBar.section}]`;
+          row(label, r.qty, `$${r.rate.toFixed(2)}`, r.total.toFixed(2));
+        }
+      });
       customLabourRows.forEach(r => {
         const total = r.manualTotal !== false ? r.manualTotal : r.qty * r.rate;
         row(r.label, r.qty, `$${r.rate.toFixed(2)}`, total.toFixed(2));
       });
       row("Labour Sub Total", "", "", subTotal.toFixed(2));
       row("");
-      row(`Overhead (${bp.overhead.pct}%)`, "", "", ohAmt.toFixed(2));
-      row(`Profit (${bp.profit.pct}%)`, "", "", profitAmt.toFixed(2));
+      row(`Overhead (${bp.overhead.pct}% on mat+labour)`, "", "", ohAmt.toFixed(2));
+      row(`Profit (${bp.profit.pct}% on mat+labour)`, "", "", profitAmt.toFixed(2));
       row("");
       row("TOTAL QUOTE", "", "", totalQuote.toFixed(2));
       if ((bp.optionalItems || []).length > 0) {
@@ -2528,11 +2698,11 @@ export default function TakeoffApp() {
             </div>
           </div>
 
-          <BPRow rowKey="resBar" row={rows.resBar} qtyEditable qtyPath="qty" budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
+          <BPRow rowKey="resBar" row={rows.resBar} qtyEditable qtyPath="qty" budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} showResBarSection />
           <BPRow rowKey="boarding" row={rows.boarding} budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
           <BPRow rowKey="scrap" row={rows.scrap} budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
           <BPRow rowKey="beading" row={rows.beading} qtyEditable qtyPath="qty" budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
-          <BPRow rowKey="taping" row={rows.taping} showNoTape budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
+          <BPRow rowKey="taping" row={rows.taping} showNoTape budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} tileBackerSqFt={Math.round(tileBackerSqFt)} />
 
           {/* Custom labour rows */}
           {customLabourRows.map((row) => {
@@ -2684,11 +2854,12 @@ export default function TakeoffApp() {
   if (screen === "accessories") {
     const areaNames = currentJob?.areas.map((a) => a.name) || [];
 
-    // Mud & tape auto-suggestion rates (single family only)
+    // Mud, tape & screw auto-suggestion rates (single family only)
     const MUD_SUGGESTIONS = {
       "RPHBTP (DRYWALL TAPE 500')": 1200,
       "SYLLJT17 (SYNKO LITE JOINT MUD YELLOW)": 1800,
       "SYCLFN17 (SYNKO CLASSIS FINISH RED)": 550,
+      "DS114C (1 1/4\" COARSE DW SCREWS)": 8000,
     };
 
     // Auto-populate suggested mud quantities for single family jobs
@@ -2742,6 +2913,33 @@ export default function TakeoffApp() {
                 <span>{category}</span>
                 <span style={{ fontSize: 14, color: "#60a5fa" }}>{collapsedSections[category] ? "▸" : "▾"}</span>
               </div>
+              {/* DS114C screw pinned row — always visible even when Fasteners collapsed */}
+              {category === "Fasteners & Adhesives" && collapsedSections[category] && (() => {
+                const product = "DS114C (1 1/4\" COARSE DW SCREWS)";
+                const entry = accessories.find((a) => a.product === product) || { qty: 0, placement: "General" };
+                const suggestedQty = getSuggestedQty(product);
+                const isAutoSuggested = suggestedQty !== null && entry.qty === 0;
+                return (
+                  <div style={{ ...styles.accRow, borderLeft: isAutoSuggested ? "3px solid #f59e0b" : "3px solid transparent", background: "#0a1628", borderBottom: "1px solid #0f172a" }}>
+                    <div style={styles.accProductName}>
+                      {product}
+                      {isAutoSuggested && <div style={{ fontSize: 10, color: "#f59e0b", marginTop: 2 }}>⚠️ Suggested: {suggestedQty} — tap to confirm</div>}
+                    </div>
+                    <div style={styles.accControls}>
+                      <div style={styles.accQtyRow}>
+                        <button
+                          style={{ ...styles.accQtyBtn, minWidth: 52, borderColor: isAutoSuggested ? "#f59e0b44" : undefined }}
+                          onPointerDown={() => startLongPress(product)}
+                          onPointerUp={() => { cancelLongPress(); updateAccessoryQty(product, isAutoSuggested ? suggestedQty : Math.max(0, (entry.qty || 0) - 1)); }}
+                          onPointerLeave={cancelLongPress}
+                          onContextMenu={e => e.preventDefault()}
+                        >{entry.qty > 0 ? entry.qty : isAutoSuggested ? suggestedQty : "·"}</button>
+                        <button style={styles.accQtyBtn} onPointerDown={() => startLongPress(product)} onPointerUp={() => { cancelLongPress(); updateAccessoryQty(product, (entry.qty || 0) + 1); }} onPointerLeave={cancelLongPress} onContextMenu={e => e.preventDefault()}>＋</button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
               {!collapsedSections[category] && products.map((product) => {
                 const entry = accessories.find((a) => a.product === product) || { qty: 0, placement: "" };
                 const isBead = isBeadProduct(product);
@@ -3020,7 +3218,7 @@ export default function TakeoffApp() {
       });
       const accSections = {
         "Mud & Tape": ["RPHBTP","SYLLJT17","SYCLFN17","HMRL17","SYPDCF","RPFIBA"],
-        "Beads & Trim": ["RPLL100","PBTBD","B1XW","PJC58","PJC12","PBB9","PB58A9","VB41","VB9000"],
+        "Beads & Trim": ["RPLL100","PBTBD","B1XW","PJC58","PJC12","PBB9","PB58A9","VB41","VB9000","B412","B458"],
         "Metal & Track": ["MS18RES","MS18124","MS18HAT"],
         "Fasteners & Adhesives": ["ADDSA2","ADDSA4","DS001F","JW15104","DS114C","DS002C","DS002F"],
       };
@@ -3091,7 +3289,7 @@ export default function TakeoffApp() {
 
     const accSectionLabels = {
       "Mud & Tape": ["RPHBTP","SYLLJT17","SYCLFN17","HMRL17","SYPDCF","RPFIBA"],
-      "Beads & Trim": ["RPLL100","PBTBD","B1XW","PJC58","PJC12","PBB9","PB58A9","VB41","VB9000"],
+      "Beads & Trim": ["RPLL100","PBTBD","B1XW","PJC58","PJC12","PBB9","PB58A9","VB41","VB9000","B412","B458"],
       "Metal & Track": ["MS18RES","MS18124","MS18HAT"],
       "Fasteners & Adhesives": ["ADDSA2","ADDSA4","DS001F","JW15104","DS114C","DS002C","DS002F"],
     };
@@ -3148,7 +3346,7 @@ export default function TakeoffApp() {
             <div style={{ fontSize: 12, fontWeight: 700, color: "#f59e0b", marginBottom: 6 }}>Updating Prices</div>
             <div style={{ fontSize: 11, color: "#64748b", lineHeight: 1.6 }}>
               Tap a section heading to expand it, then click Edit next to any item.
-              Board types use price per sqft. Beads &amp; Trim use price per foot. Other accessories use price per unit.
+              Board types use price per sqft. Beads & Trim use price per foot. Other accessories use price per unit.
               Use RESET to restore all Feb 2026 Shoemaker defaults.
             </div>
           </div>
