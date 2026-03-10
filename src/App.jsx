@@ -360,8 +360,10 @@ export default function TakeoffApp() {
   const [showBudgetUnlockModal, setShowBudgetUnlockModal] = useState(false);
   const [budgetPasswordInput, setBudgetPasswordInput] = useState("");
   const [budgetPasswordError, setBudgetPasswordError] = useState(false);
+  const [showBudgetPw, setShowBudgetPw] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState(false);
+  const [showMainPw, setShowMainPw] = useState(false);
   const [newJobName, setNewJobName] = useState("");
   const [newJobNumber, setNewJobNumber] = useState("");
   const [newJobType, setNewJobType] = useState("single");
@@ -398,6 +400,7 @@ export default function TakeoffApp() {
   const [accPrices, setAccPrices] = useState(() => loadAccPrices());
   const [adminPriceInput, setAdminPriceInput] = useState("");
   const [adminPriceError, setAdminPriceError] = useState(false);
+  const [showAdminPw, setShowAdminPw] = useState(false);
   const [isPricingUnlocked, setIsPricingUnlocked] = useState(false);
   const [importMsg, setImportMsg] = useState("");
   const importFileRef = useRef(null);
@@ -1051,25 +1054,28 @@ export default function TakeoffApp() {
           <div style={{ fontSize: 13, color: "#475569", marginBottom: 40, letterSpacing: 1 }}>Drywall Takeoff App</div>
           <div style={{ width: "100%", maxWidth: 320 }}>
             <div style={{ fontSize: 11, color: "#475569", fontWeight: 700, letterSpacing: 1.5, marginBottom: 8 }}>ENTER PASSWORD</div>
-            <input
-              autoFocus
-              type="password"
-              style={{ ...styles.input, fontSize: 18, letterSpacing: 4, textAlign: "center", borderColor: passwordError ? "#ef4444" : "#1e293b" }}
-              placeholder="••••••••"
-              value={passwordInput}
-              onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(false); }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  if (passwordInput === "MBDW2025") {
-                    localStorage.setItem("takeoff_unlocked", "true");
-                    setIsUnlocked(true);
-                  } else {
-                    setPasswordError(true);
-                    setPasswordInput("");
+            <div style={{ position:"relative" }}>
+              <input
+                autoFocus
+                type={showMainPw ? "text" : "password"}
+                style={{ ...styles.input, fontSize: 18, letterSpacing: 4, textAlign: "center", borderColor: passwordError ? "#ef4444" : "#1e293b", paddingRight: 40 }}
+                placeholder="••••••••"
+                value={passwordInput}
+                onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(false); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    if (passwordInput === "MBDW2025") {
+                      localStorage.setItem("takeoff_unlocked", "true");
+                      setIsUnlocked(true);
+                    } else {
+                      setPasswordError(true);
+                      setPasswordInput("");
+                    }
                   }
-                }
-              }}
-            />
+                }}
+              />
+              <button onClick={() => setShowMainPw(x => !x)} style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", color:"#64748b", fontSize:18, padding:4, touchAction:"manipulation", lineHeight:1 }}>{showMainPw ? "🙈" : "👁"}</button>
+            </div>
             {passwordError && (
               <div style={{ color: "#ef4444", fontSize: 12, textAlign: "center", marginTop: -8, marginBottom: 12 }}>Incorrect password. Try again.</div>
             )}
@@ -1298,15 +1304,18 @@ export default function TakeoffApp() {
         {showBudgetUnlockModal && (
           <Modal title="🔒 Budget Access" onClose={() => { setShowBudgetUnlockModal(false); setBudgetPasswordInput(""); setBudgetPasswordError(false); }}>
             <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 12 }}>Enter the budget password to unlock Budget Order jobs.</p>
-            <input
-              autoFocus
-              type="password"
-              style={styles.input}
-              placeholder="Password"
-              value={budgetPasswordInput}
-              onChange={(e) => { setBudgetPasswordInput(e.target.value); setBudgetPasswordError(false); }}
-              onKeyDown={(e) => e.key === "Enter" && handleBudgetUnlock()}
-            />
+            <div style={{ position:"relative" }}>
+              <input
+                autoFocus
+                type={showBudgetPw ? "text" : "password"}
+                style={{ ...styles.input, paddingRight: 40 }}
+                placeholder="Password"
+                value={budgetPasswordInput}
+                onChange={(e) => { setBudgetPasswordInput(e.target.value); setBudgetPasswordError(false); }}
+                onKeyDown={(e) => e.key === "Enter" && handleBudgetUnlock()}
+              />
+              <button onClick={() => setShowBudgetPw(x => !x)} style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", color:"#64748b", fontSize:18, padding:4, touchAction:"manipulation", lineHeight:1 }}>{showBudgetPw ? "🙈" : "👁"}</button>
+            </div>
             {budgetPasswordError && <div style={{ color: "#ef4444", fontSize: 13, marginBottom: 8 }}>Incorrect password.</div>}
             <button style={styles.btnPrimary} onClick={handleBudgetUnlock}>Unlock</button>
           </Modal>
@@ -2468,15 +2477,49 @@ export default function TakeoffApp() {
 
   // ─── ADMIN PRICING SCREEN ──────────────────────────────────────────────────
   if (screen === "pricing") {
-    if (!isPricingUnlocked) {
-      return (
-        <div style={{ ...styles.shell, maxWidth: 520, alignItems: "center", justifyContent: "center", overflowY: "auto" }}>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 24px", width: "100%", gap: 16 }}>
-            <div style={{ fontSize: 28 }}>🔒</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Admin Pricing</div>
-            <div style={{ fontSize: 13, color: "#64748b", textAlign: "center" }}>Enter admin password to view and edit material prices</div>
+    return (
+      <PricingScreen
+        isPricingUnlocked={isPricingUnlocked}
+        setIsPricingUnlocked={setIsPricingUnlocked}
+        setScreen={setScreen}
+        adminPriceInput={adminPriceInput}
+        setAdminPriceInput={setAdminPriceInput}
+        adminPriceError={adminPriceError}
+        setAdminPriceError={setAdminPriceError}
+        showAdminPw={showAdminPw}
+        setShowAdminPw={setShowAdminPw}
+        sqftPrices={sqftPrices}
+        setSqftPrices={setSqftPrices}
+        accPrices={accPrices}
+        setAccPrices={setAccPrices}
+        importMsg={importMsg}
+        setImportMsg={setImportMsg}
+        importFileRef={importFileRef}
+      />
+    );
+  }
+
+  return null;
+}
+
+// ─── PRICING SCREEN (extracted to avoid conditional-return hook issues on Android) ──
+function PricingScreen({
+  isPricingUnlocked, setIsPricingUnlocked, setScreen,
+  adminPriceInput, setAdminPriceInput, adminPriceError, setAdminPriceError,
+  showAdminPw, setShowAdminPw,
+  sqftPrices, setSqftPrices, accPrices, setAccPrices,
+  importMsg, setImportMsg, importFileRef,
+}) {
+  if (!isPricingUnlocked) {
+    return (
+      <div style={{ ...styles.shell, maxWidth: 520, alignItems: "center", justifyContent: "center", overflowY: "auto" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 24px", width: "100%", gap: 16 }}>
+          <div style={{ fontSize: 28 }}>🔒</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Admin Pricing</div>
+          <div style={{ fontSize: 13, color: "#64748b", textAlign: "center" }}>Enter admin password to view and edit material prices</div>
+          <div style={{ position: "relative", width: "100%" }}>
             <input
-              type="password"
+              type={showAdminPw ? "text" : "password"}
               placeholder="Admin password"
               value={adminPriceInput}
               onChange={e => { setAdminPriceInput(e.target.value); setAdminPriceError(false); }}
@@ -2486,221 +2529,181 @@ export default function TakeoffApp() {
                   else setAdminPriceError(true);
                 }
               }}
-              style={{ width: "100%", background: "#1e293b", border: adminPriceError ? "1px solid #ef4444" : "1px solid #334155", borderRadius: 8, color: "#e2e8f0", fontSize: 15, padding: "10px 12px", boxSizing: "border-box", outline: "none" }}
+              style={{ width: "100%", background: "#1e293b", border: adminPriceError ? "1px solid #ef4444" : "1px solid #334155", borderRadius: 8, color: "#e2e8f0", fontSize: 15, padding: "10px 12px", paddingRight: 40, boxSizing: "border-box", outline: "none" }}
             />
-            {adminPriceError && <div style={{ color: "#ef4444", fontSize: 12 }}>Incorrect password</div>}
-            <button onClick={() => { if (adminPriceInput === "MBDW2025P") { setIsPricingUnlocked(true); setAdminPriceInput(""); } else setAdminPriceError(true); }}
-              style={{ background: "#2563eb", border: "none", borderRadius: 8, color: "#fff", fontWeight: 700, fontSize: 14, padding: "10px 28px", cursor: "pointer", touchAction: "manipulation" }}>Unlock</button>
-            <button onClick={() => setScreen("home")} style={{ background: "none", border: "none", color: "#64748b", fontSize: 13, cursor: "pointer", touchAction: "manipulation" }}>← Back</button>
+            <button onClick={() => setShowAdminPw(x => !x)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#64748b", fontSize: 18, padding: 4, touchAction: "manipulation", lineHeight: 1 }}>
+              {showAdminPw ? "🙈" : "👁"}
+            </button>
           </div>
-        </div>
-      );
-    }
-
-    const resetPrices = () => {
-      const freshSqft = JSON.parse(JSON.stringify(DEFAULT_SQFT_PRICES));
-      const freshAcc = JSON.parse(JSON.stringify(DEFAULT_ACC_PRICES));
-      setSqftPrices(freshSqft); saveSqftPrices(freshSqft);
-      setAccPrices(freshAcc); saveAccPrices(freshAcc);
-    };
-
-    const exportPricesCSV = () => {
-      const rows = [["code", "label", "price", "unit", "category"]];
-      // Board types
-      const boardLabelsLocal = {
-        "12ST":"12ST — 1/2\" Standard Lite","58FG":"58FG — 5/8\" Fireguard (Type X)","58ULIX":"58ULIX — 5/8\" Ultralight FC",
-        "12CD":"12CD — 1/2\" Ceiling Board","12MOLD":"12MOLD — 1/2\" Aqua/Mold Tough","58MOLD":"58MOLD — 5/8\" Aqua/Mold Tough",
-        "12FG":"12FG — 1/2\" Fireguard (FC Type C)","12AR":"12AR — 1/2\" Abuse Resistant","58AR":"58AR — 5/8\" Abuse Resistant",
-        "1254":"1254 — 1/2\" 54\" Std Lite","14FL":"14FL — 1/4\" Flexible","12TB":"12TB — 1/2\" Tile Backer",
-        "58TB":"58TB — 5/8\" Tile Backer","12DU":"12DU — 1/2\" Durock","58DU":"58DU — 5/8\" Durock",
-        "12SR":"12SR — 1/2\" Securock","58SR":"58SR — 5/8\" Securock","01GM":"01GM — Shaft Board (Glass Mat)",
-      };
-      Object.keys(boardLabelsLocal).forEach(code => {
-        const price = sqftPrices?.[code] ?? DEFAULT_SQFT_PRICES[code];
-        rows.push([code, boardLabelsLocal[code], price.toFixed(4), "$/sqft", "Board Types"]);
-      });
-      // Accessories
-      const accSections = {
-        "Mud & Tape": ["RPHBTP","SYLLJT17","SYCLFN17","HMRL17","SYPDCF","RPFIBA"],
-        "Beads & Trim": ["RPLL100","PBTBD","B1XW","PJC58","PJC12","PBB9","PB58A9","VB41","VB9000"],
-        "Metal & Track": ["MS18RES","MS18124","MS18HAT"],
-        "Fasteners & Adhesives": ["ADDSA2","ADDSA4","DS001F","JW15104","DS114C","DS002C","DS002F"],
-      };
-      const accLabelMapLocal = {};
-      Object.values(ACCESSORIES).flat().forEach(a => { accLabelMapLocal[a.split(" ")[0]] = a; });
-      Object.entries(accSections).forEach(([section, codes]) => {
-        codes.forEach(code => {
-          const p = accPrices?.[code] ?? DEFAULT_ACC_PRICES[code];
-          const unitStr = section === "Beads & Trim" && code !== "RPLL100" ? "$/ft" : `$/${p?.unit || "ea"}`;
-          rows.push([code, accLabelMapLocal[code] || code, (p?.price ?? 0).toFixed(4), unitStr, section]);
-        });
-      });
-      const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-      const blob = new Blob([csv], { type: "text/csv" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = "MBDW_Pricing.csv"; a.click();
-      URL.revokeObjectURL(url);
-    };
-
-    const importPricesCSV = (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        try {
-          const lines = ev.target.result.split("\n").slice(1); // skip header
-          const newSqft = { ...sqftPrices };
-          const newAcc = JSON.parse(JSON.stringify(accPrices));
-          let count = 0;
-          lines.forEach(line => {
-            if (!line.trim()) return;
-            // Parse CSV row - split on commas, strip surrounding quotes
-            const cols = line.split(",").map(c => c.trim().replace(/^"|"$/g, "").replace(/""/g, '"'));
-            const [code, , priceStr, unit, category] = cols;
-            if (!code || !priceStr) return;
-            const price = parseFloat(priceStr);
-            if (isNaN(price)) return;
-            if (category === "Board Types") {
-              if (DEFAULT_SQFT_PRICES[code] !== undefined) { newSqft[code] = price; count++; }
-            } else {
-              if (DEFAULT_ACC_PRICES[code] !== undefined) {
-                newAcc[code] = { ...newAcc[code], price };
-                count++;
-              }
-            }
-          });
-          setSqftPrices(newSqft); saveSqftPrices(newSqft);
-          setAccPrices(newAcc); saveAccPrices(newAcc);
-          setImportMsg(`✅ ${count} prices updated`);
-          setTimeout(() => setImportMsg(""), 3000);
-        } catch(err) {
-          setImportMsg("❌ Import failed — check file format");
-          setTimeout(() => setImportMsg(""), 4000);
-        }
-      };
-      reader.readAsText(file);
-      e.target.value = ""; // reset input
-    };
-
-
-    const boardLabels = {
-      "12ST":   "12ST — 1/2\" Standard Lite",
-      "58ULIX": "58ULIX — 5/8\" Ultralight FC",
-      "58FG":   "58FG — 5/8\" Fireguard (Type X)",
-      "12TB":   "12TB — 1/2\" Tile Backer",
-      "58TB":   "58TB — 5/8\" Tile Backer",
-      "12CD":   "12CD — 1/2\" Ceiling Board",
-      "14FL":   "14FL — 1/4\" Flexible",
-      "1254":   "1254 — 1/2\" 54\" Std Lite",
-      "12DU":   "12DU — 1/2\" Durock",
-      "58DU":   "58DU — 5/8\" Durock",
-      "12MOLD": "12MOLD — 1/2\" Aqua/Mold Tough",
-      "58MOLD": "58MOLD — 5/8\" Aqua/Mold Tough",
-      "12SR":   "12SR — 1/2\" Securock",
-      "58SR":   "58SR — 5/8\" Securock",
-      "12FG":   "12FG — 1/2\" Fireguard (FC Type C)",
-      "12AR":   "12AR — 1/2\" Abuse Resistant",
-      "58AR":   "58AR — 5/8\" Abuse Resistant",
-      "01GM":   "01GM — Shaft Board (Glass Mat)",
-    };
-
-    const accSectionLabels = {
-      "Mud & Tape": ["RPHBTP","SYLLJT17","SYCLFN17","HMRL17","SYPDCF","RPFIBA"],
-      "Beads & Trim": ["RPLL100","PBTBD","B1XW","PJC58","PJC12","PBB9","PB58A9","VB41","VB9000"],
-      "Metal & Track": ["MS18RES","MS18124","MS18HAT"],
-      "Fasteners & Adhesives": ["ADDSA2","ADDSA4","DS001F","JW15104","DS114C","DS002C","DS002F"],
-    };
-
-    // Map accessory full labels from ACCESSORIES const
-    const accLabelMap = {};
-    Object.values(ACCESSORIES).flat().forEach(a => {
-      const code = a.split(" ")[0];
-      accLabelMap[code] = a;
-    });
-
-    return (
-      <div style={styles.shell}>
-        <div style={styles.header}>
-          <button onClick={() => { setScreen("home"); setIsPricingUnlocked(false); }} style={styles.back}>←</button>
-          <div style={styles.headerTitle}>💲 Material Pricing</div>
-          <button onClick={resetPrices} style={{ background: "none", border: "1px solid #ef4444", borderRadius: 6, color: "#ef4444", fontSize: 11, fontWeight: 700, padding: "4px 8px", cursor: "pointer" }}>RESET</button>
-        </div>
-        <div style={{ ...styles.body, padding: "0 0 40px 0" }}>
-          <div style={{ padding: "10px 14px 6px", fontSize: 11, color: "#64748b" }}>
-            Tap a section to expand. Click Edit to update a price. Saves automatically.
-          </div>
-
-          {/* Export / Import toolbar */}
-          <div style={{ display: "flex", gap: 8, padding: "8px 14px 12px", borderBottom: "2px solid #1e293b", alignItems: "center" }}>
-            <button
-              onClick={exportPricesCSV}
-              style={{ flex: 1, background: "#1e293b", border: "1px solid #334155", borderRadius: 7, color: "#60a5fa", fontSize: 12, fontWeight: 700, padding: "8px 0", cursor: "pointer" }}
-            >⬇ Export CSV</button>
-            <button
-              onClick={() => importFileRef.current?.click()}
-              style={{ flex: 1, background: "#1e293b", border: "1px solid #334155", borderRadius: 7, color: "#34d399", fontSize: 12, fontWeight: 700, padding: "8px 0", cursor: "pointer" }}
-            >⬆ Import CSV</button>
-            <input ref={importFileRef} type="file" accept=".csv" style={{ display: "none" }} onChange={importPricesCSV} />
-          </div>
-          {importMsg && (
-            <div style={{ padding: "8px 14px", fontSize: 12, fontWeight: 700, color: importMsg.startsWith("✅") ? "#34d399" : "#ef4444", background: "#0d1a2a", borderBottom: "1px solid #1e293b" }}>
-              {importMsg}
-            </div>
-          )}
-
-          {/* Board Types — price per sqft */}
-          <PricingSection title="BOARD TYPES" count={`${Object.keys(boardLabels).length} items · $/sqft`}>
-            {Object.keys(boardLabels).map(code => (
-              <PricingRow
-                key={code}
-                code={code}
-                label={boardLabels[code]}
-                price={sqftPrices?.[code] ?? DEFAULT_SQFT_PRICES[code]}
-                defaultPrice={DEFAULT_SQFT_PRICES[code]}
-                unit="sqft"
-                onSave={n => {
-                  const np = { ...sqftPrices, [code]: n };
-                  setSqftPrices(np); saveSqftPrices(np);
-                }}
-              />
-            ))}
-          </PricingSection>
-
-          {/* Accessory sections — price per unit */}
-          {Object.entries(accSectionLabels).map(([section, codes]) => (
-            <PricingSection key={section} title={section.toUpperCase()} count={`${codes.length} items · ${section === "Beads & Trim" ? "$/ft" : "$/unit"}`}>
-              {codes.map(code => (
-                <PricingRow
-                  key={code}
-                  code={code}
-                  label={accLabelMap[code] || code}
-                  price={accPrices?.[code]?.price ?? DEFAULT_ACC_PRICES[code]?.price}
-                  defaultPrice={DEFAULT_ACC_PRICES[code]?.price}
-                  unit={accPrices?.[code]?.unit ?? DEFAULT_ACC_PRICES[code]?.unit ?? "ea"}
-                  onSave={n => {
-                    const np = { ...accPrices, [code]: { ...accPrices[code], price: n } };
-                    setAccPrices(np); saveAccPrices(np);
-                  }}
-                />
-              ))}
-            </PricingSection>
-          ))}
-
-          <div style={{ padding: 16, margin: 12, background: "#0d1a2a", borderRadius: 8, border: "1px solid #1e293b" }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#f59e0b", marginBottom: 6 }}>📋 Updating Prices</div>
-            <div style={{ fontSize: 11, color: "#64748b", lineHeight: 1.6 }}>
-              Tap a section heading to expand it, then click Edit next to any item.<br/>
-              Board types use price per sqft. Beads &amp; Trim use price per foot. Other accessories use price per unit.<br/>
-              Use RESET to restore all Feb 2026 Shoemaker defaults.
-            </div>
-          </div>
+          {adminPriceError && <div style={{ color: "#ef4444", fontSize: 12 }}>Incorrect password</div>}
+          <button
+            onClick={() => { if (adminPriceInput === "MBDW2025P") { setIsPricingUnlocked(true); setAdminPriceInput(""); } else setAdminPriceError(true); }}
+            style={{ background: "#2563eb", border: "none", borderRadius: 8, color: "#fff", fontWeight: 700, fontSize: 14, padding: "10px 28px", cursor: "pointer", touchAction: "manipulation" }}
+          >Unlock</button>
+          <button onClick={() => setScreen("home")} style={{ background: "none", border: "none", color: "#64748b", fontSize: 13, cursor: "pointer", touchAction: "manipulation" }}>← Back</button>
         </div>
       </div>
     );
   }
 
-  return null;
+  const resetPrices = () => {
+    const freshSqft = JSON.parse(JSON.stringify(DEFAULT_SQFT_PRICES));
+    const freshAcc = JSON.parse(JSON.stringify(DEFAULT_ACC_PRICES));
+    setSqftPrices(freshSqft); saveSqftPrices(freshSqft);
+    setAccPrices(freshAcc); saveAccPrices(freshAcc);
+  };
+
+  const exportPricesCSV = () => {
+    const rows = [["code", "label", "price", "unit", "category"]];
+    const boardLabelsLocal = {
+      "12ST": "12ST — 1/2\" Standard Lite", "58FG": "58FG — 5/8\" Fireguard (Type X)", "58ULIX": "58ULIX — 5/8\" Ultralight FC",
+      "12CD": "12CD — 1/2\" Ceiling Board", "12MOLD": "12MOLD — 1/2\" Aqua/Mold Tough", "58MOLD": "58MOLD — 5/8\" Aqua/Mold Tough",
+      "12FG": "12FG — 1/2\" Fireguard (FC Type C)", "12AR": "12AR — 1/2\" Abuse Resistant", "58AR": "58AR — 5/8\" Abuse Resistant",
+      "1254": "1254 — 1/2\" 54\" Std Lite", "14FL": "14FL — 1/4\" Flexible", "12TB": "12TB — 1/2\" Tile Backer",
+      "58TB": "58TB — 5/8\" Tile Backer", "12DU": "12DU — 1/2\" Durock", "58DU": "58DU — 5/8\" Durock",
+      "12SR": "12SR — 1/2\" Securock", "58SR": "58SR — 5/8\" Securock", "01GM": "01GM — Shaft Board (Glass Mat)",
+    };
+    Object.keys(boardLabelsLocal).forEach(code => {
+      const price = sqftPrices?.[code] ?? DEFAULT_SQFT_PRICES[code];
+      rows.push([code, boardLabelsLocal[code], price.toFixed(4), "$/sqft", "Board Types"]);
+    });
+    const accSectionsLocal = {
+      "Mud & Tape": ["RPHBTP","SYLLJT17","SYCLFN17","HMRL17","SYPDCF","RPFIBA"],
+      "Beads & Trim": ["RPLL100","PBTBD","B1XW","PJC58","PJC12","PBB9","PB58A9","VB41","VB9000"],
+      "Metal & Track": ["MS18RES","MS18124","MS18HAT"],
+      "Fasteners & Adhesives": ["ADDSA2","ADDSA4","DS001F","JW15104","DS114C","DS002C","DS002F"],
+    };
+    const accLabelMapLocal = {};
+    Object.values(ACCESSORIES).flat().forEach(a => { accLabelMapLocal[a.split(" ")[0]] = a; });
+    Object.entries(accSectionsLocal).forEach(([section, codes]) => {
+      codes.forEach(code => {
+        const p = accPrices?.[code] ?? DEFAULT_ACC_PRICES[code];
+        const unitStr = section === "Beads & Trim" && code !== "RPLL100" ? "$/ft" : `$/${p?.unit || "ea"}`;
+        rows.push([code, accLabelMapLocal[code] || code, (p?.price ?? 0).toFixed(4), unitStr, section]);
+      });
+    });
+    const csv = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "MBDW_Pricing.csv"; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importPricesCSV = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const lines = ev.target.result.split("\n").slice(1);
+        const newSqft = { ...sqftPrices };
+        const newAcc = JSON.parse(JSON.stringify(accPrices));
+        let count = 0;
+        lines.forEach(line => {
+          if (!line.trim()) return;
+          const cols = line.split(",").map(col => col.trim().replace(/^"|"$/g, "").replace(/""/g, '"'));
+          const [code, , priceStr, , category] = cols;
+          if (!code || !priceStr) return;
+          const price = parseFloat(priceStr);
+          if (isNaN(price)) return;
+          if (category === "Board Types") {
+            if (DEFAULT_SQFT_PRICES[code] !== undefined) { newSqft[code] = price; count++; }
+          } else {
+            if (DEFAULT_ACC_PRICES[code] !== undefined) { newAcc[code] = { ...newAcc[code], price }; count++; }
+          }
+        });
+        setSqftPrices(newSqft); saveSqftPrices(newSqft);
+        setAccPrices(newAcc); saveAccPrices(newAcc);
+        setImportMsg(`✅ ${count} prices updated`);
+        setTimeout(() => setImportMsg(""), 3000);
+      } catch (err) {
+        setImportMsg("❌ Import failed — check file format");
+        setTimeout(() => setImportMsg(""), 4000);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const boardLabels = {
+    "12ST": "12ST — 1/2\" Standard Lite", "58ULIX": "58ULIX — 5/8\" Ultralight FC",
+    "58FG": "58FG — 5/8\" Fireguard (Type X)", "12TB": "12TB — 1/2\" Tile Backer",
+    "58TB": "58TB — 5/8\" Tile Backer", "12CD": "12CD — 1/2\" Ceiling Board",
+    "14FL": "14FL — 1/4\" Flexible", "1254": "1254 — 1/2\" 54\" Std Lite",
+    "12DU": "12DU — 1/2\" Durock", "58DU": "58DU — 5/8\" Durock",
+    "12MOLD": "12MOLD — 1/2\" Aqua/Mold Tough", "58MOLD": "58MOLD — 5/8\" Aqua/Mold Tough",
+    "12SR": "12SR — 1/2\" Securock", "58SR": "58SR — 5/8\" Securock",
+    "12FG": "12FG — 1/2\" Fireguard (FC Type C)", "12AR": "12AR — 1/2\" Abuse Resistant",
+    "58AR": "58AR — 5/8\" Abuse Resistant", "01GM": "01GM — Shaft Board (Glass Mat)",
+  };
+
+  const accSectionLabels = {
+    "Mud & Tape": ["RPHBTP","SYLLJT17","SYCLFN17","HMRL17","SYPDCF","RPFIBA"],
+    "Beads & Trim": ["RPLL100","PBTBD","B1XW","PJC58","PJC12","PBB9","PB58A9","VB41","VB9000"],
+    "Metal & Track": ["MS18RES","MS18124","MS18HAT"],
+    "Fasteners & Adhesives": ["ADDSA2","ADDSA4","DS001F","JW15104","DS114C","DS002C","DS002F"],
+  };
+
+  const accLabelMap = {};
+  Object.values(ACCESSORIES).flat().forEach(a => { accLabelMap[a.split(" ")[0]] = a; });
+
+  return (
+    <div style={styles.shell}>
+      <div style={styles.header}>
+        <button onClick={() => { setScreen("home"); setIsPricingUnlocked(false); }} style={styles.back}>←</button>
+        <div style={styles.headerTitle}>💲 Material Pricing</div>
+        <button onClick={resetPrices} style={{ background: "none", border: "1px solid #ef4444", borderRadius: 6, color: "#ef4444", fontSize: 11, fontWeight: 700, padding: "4px 8px", cursor: "pointer" }}>RESET</button>
+      </div>
+      <div style={{ ...styles.body, padding: "0 0 40px 0" }}>
+        <div style={{ padding: "10px 14px 6px", fontSize: 11, color: "#64748b" }}>
+          Tap a section to expand. Click Edit to update a price. Saves automatically.
+        </div>
+        <div style={{ display: "flex", gap: 8, padding: "8px 14px 12px", borderBottom: "2px solid #1e293b", alignItems: "center" }}>
+          <button onClick={exportPricesCSV} style={{ flex: 1, background: "#1e293b", border: "1px solid #334155", borderRadius: 7, color: "#60a5fa", fontSize: 12, fontWeight: 700, padding: "8px 0", cursor: "pointer" }}>⬇ Export CSV</button>
+          <button onClick={() => importFileRef.current?.click()} style={{ flex: 1, background: "#1e293b", border: "1px solid #334155", borderRadius: 7, color: "#34d399", fontSize: 12, fontWeight: 700, padding: "8px 0", cursor: "pointer" }}>⬆ Import CSV</button>
+          <input ref={importFileRef} type="file" accept=".csv" style={{ display: "none" }} onChange={importPricesCSV} />
+        </div>
+        {importMsg && (
+          <div style={{ padding: "8px 14px", fontSize: 12, fontWeight: 700, color: importMsg.startsWith("✅") ? "#34d399" : "#ef4444", background: "#0d1a2a", borderBottom: "1px solid #1e293b" }}>
+            {importMsg}
+          </div>
+        )}
+        <PricingSection title="BOARD TYPES" count={`${Object.keys(boardLabels).length} items · $/sqft`}>
+          {Object.keys(boardLabels).map(code => (
+            <PricingRow
+              key={code} code={code} label={boardLabels[code]}
+              price={sqftPrices?.[code] ?? DEFAULT_SQFT_PRICES[code]}
+              defaultPrice={DEFAULT_SQFT_PRICES[code]}
+              unit="sqft"
+              onSave={n => { const np = { ...sqftPrices, [code]: n }; setSqftPrices(np); saveSqftPrices(np); }}
+            />
+          ))}
+        </PricingSection>
+        {Object.entries(accSectionLabels).map(([section, codes]) => (
+          <PricingSection key={section} title={section.toUpperCase()} count={`${codes.length} items · ${section === "Beads & Trim" ? "$/ft" : "$/unit"}`}>
+            {codes.map(code => (
+              <PricingRow
+                key={code} code={code} label={accLabelMap[code] || code}
+                price={accPrices?.[code]?.price ?? DEFAULT_ACC_PRICES[code]?.price}
+                defaultPrice={DEFAULT_ACC_PRICES[code]?.price}
+                unit={accPrices?.[code]?.unit ?? DEFAULT_ACC_PRICES[code]?.unit ?? "ea"}
+                onSave={n => { const np = { ...accPrices, [code]: { ...accPrices[code], price: n } }; setAccPrices(np); saveAccPrices(np); }}
+              />
+            ))}
+          </PricingSection>
+        ))}
+        <div style={{ padding: 16, margin: 12, background: "#0d1a2a", borderRadius: 8, border: "1px solid #1e293b" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#f59e0b", marginBottom: 6 }}>📋 Updating Prices</div>
+          <div style={{ fontSize: 11, color: "#64748b", lineHeight: 1.6 }}>
+            Tap a section heading to expand it, then click Edit next to any item.<br/>
+            Board types use price per sqft. Beads &amp; Trim use price per foot. Other accessories use price per unit.<br/>
+            Use RESET to restore all Feb 2026 Shoemaker defaults.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ─── MODAL ───────────────────────────────────────────────────────────────────
