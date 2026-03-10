@@ -286,39 +286,33 @@ function BPRow({ rowKey, row, qtyEditable = false, qtyPath = null, showNoTape = 
   const isManual = (budgetPricing?.[rowKey]?.manualTotal !== false && budgetPricing?.[rowKey]?.manualTotal !== undefined) ||
     (bp[rowKey]?.manualTotal !== false && bp[rowKey]?.manualTotal !== undefined);
   const manualQty = budgetPricing?.[rowKey]?.manualQty;
-  const btnBase = { background: "none", border: "none", cursor: "pointer", textAlign: "right", padding: "12px 8px", margin: 0, width: "100%", display: "block", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" };
+  const btnBase = { background: "none", border: "none", cursor: "pointer", textAlign: "right", padding: "12px 0", margin: 0, width: "100%", display: "block", touchAction: "manipulation", WebkitTapHighlightColor: "transparent", fontFamily: "inherit" };
+  const COL = "1fr 72px 72px 80px";
   return (
     <div style={{ borderBottom: "1px solid #1e293b" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 72px 72px 84px", alignItems: "center", padding: "0 6px 0 12px", gap: 2 }}>
+      <div style={{ display: "grid", gridTemplateColumns: COL, alignItems: "center", padding: "0 12px" }}>
         <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600, padding: "10px 0" }}>
           {row.label}
-          {(isManual || manualQty) && <span style={{ fontSize: 10, color: "#f59e0b", marginLeft: 6 }}>⚠️</span>}
+          {(isManual || manualQty) && <span style={{ fontSize: 10, color: "#f59e0b", marginLeft: 6 }}>⚠</span>}
         </div>
         {qtyEditable ? (
           <button
-            style={{ ...btnBase, fontSize: 13, color: manualQty ? "#f59e0b" : "#94a3b8" }}
+            style={{ ...btnBase, fontSize: 13, color: manualQty ? "#f59e0b" : "#f59e0b" }}
             onClick={() => openBudgetEdit(`Qty: ${row.label}`, row.qty, v => { updateBP(`${rowKey}.${qtyPath}`, v); updateBP(`${rowKey}.manualQty`, true); updateBP(`${rowKey}.manualTotal`, false); })}
-          >
-            {typeof row.qty === "number" ? (Number.isInteger(row.qty) ? row.qty : row.qty.toFixed(2)) : row.qty}
-            <span style={{ fontSize: 11, color: "#475569", marginLeft: 3 }}>✏</span>
-          </button>
+          >{typeof row.qty === "number" ? (Number.isInteger(row.qty) ? row.qty : row.qty.toFixed(2)) : row.qty}</button>
         ) : (
-          <div style={{ fontSize: 13, color: "#94a3b8", textAlign: "right", padding: "10px 6px" }}>
+          <div style={{ fontSize: 13, color: "#64748b", textAlign: "right", padding: "10px 0" }}>
             {typeof row.qty === "number" ? (Number.isInteger(row.qty) ? row.qty : row.qty.toFixed(2)) : row.qty}
           </div>
         )}
         <button
-          style={{ ...btnBase, fontSize: 13, color: "#64748b" }}
+          style={{ ...btnBase, fontSize: 13, color: "#f59e0b" }}
           onClick={() => { const rateKey = rowKey === "management" ? "costPerTrip" : "rate"; openBudgetEdit(`Rate: ${row.label}`, row.rate, v => { updateBP(`${rowKey}.${rateKey}`, v); updateBP(`${rowKey}.manualTotal`, false); }); }}
-        >
-          ${row.rate}<span style={{ fontSize: 11, color: "#475569", marginLeft: 3 }}>✏</span>
-        </button>
+        >${row.rate}</button>
         <button
-          style={{ ...btnBase, fontSize: 13, fontWeight: 700, color: isManual ? "#f59e0b" : "#34d399" }}
+          style={{ ...btnBase, fontSize: 13, fontWeight: 700, color: "#f59e0b" }}
           onClick={() => openBudgetEdit(`Override Total: ${row.label}`, row.total?.toFixed(2) ?? "0", v => updateBP(`${rowKey}.manualTotal`, v))}
-        >
-          ${(row.total || 0).toFixed(0)}<span style={{ fontSize: 11, color: "#475569", marginLeft: 3 }}>✏</span>
-        </button>
+        >${(row.total || 0).toFixed(0)}</button>
       </div>
       {showNoTape && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 12px 8px", borderTop: "1px solid #0f172a" }}>
@@ -409,6 +403,7 @@ export default function TakeoffApp() {
   const importFileRef = useRef(null);
   const [materialCostExpanded, setMaterialCostExpanded] = useState(false);
   const [accessoryCostExpanded, setAccessoryCostExpanded] = useState(false);
+  const [boardBreakdownExpanded, setBoardBreakdownExpanded] = useState(false);
   const [budgetEditModal, setBudgetEditModal] = useState(null);
   const openBudgetEdit = (title, currentVal, onSave) =>
     setBudgetEditModal({ type: "edit", title, value: String(currentVal), onSave });
@@ -418,6 +413,7 @@ export default function TakeoffApp() {
   const [bulkPopup, setBulkPopup] = useState(null); // { x, y, mat, len, count }
   const bulkInterval = useRef(null);
   const accScrollRef = useRef(null);
+  const budgetScrollRef = useRef(null);
   const shellRef = useRef(null);
   const longPressTimer = useRef(null);
   const [isLandscape, setIsLandscape] = useState(
@@ -457,6 +453,9 @@ export default function TakeoffApp() {
       if (shellRef.current) shellRef.current.scrollTop = 0;
       if (screen === "accessories" && accScrollRef.current) {
         accScrollRef.current.scrollTop = 0;
+      }
+      if (screen === "budget" && budgetScrollRef.current) {
+        budgetScrollRef.current.scrollTop = 0;
       }
     }, 0);
   }, [screen]);
@@ -1045,7 +1044,7 @@ export default function TakeoffApp() {
 
   if (!isUnlocked) {
     return (
-      <div style={{ ...styles.shell, maxWidth: 520, alignItems: "center", justifyContent: "center" }}>
+      <div style={{ ...styles.shell, maxWidth: 520, alignItems: "center", justifyContent: "center", overflowY: "auto" }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 24px", width: "100%" }}>
           <img src={MBDW_LOGO} alt="MBDW" style={{ height: 72, marginBottom: 24, objectFit: "contain", mixBlendMode: "screen" }} />
           <div style={{ fontSize: 20, fontWeight: 800, color: "#f1f5f9", marginBottom: 4 }}>Maclean Bros.</div>
@@ -1739,7 +1738,7 @@ export default function TakeoffApp() {
       resBar:       { label: "Res Bar / Angle",  qty: resBarAutoQty,        rate: bp.resBar.rate,           total: bp.resBar.manualTotal !== false ? bp.resBar.manualTotal : resBarAutoQty * bp.resBar.rate },
       boarding:     { label: "Boarding",          qty: boardingFootage,      rate: bp.boarding.rate,         total: bp.boarding.manualTotal !== false ? bp.boarding.manualTotal : boardingFootage * bp.boarding.rate },
       scrap:        { label: "Scrap",             qty: boardingFootage,      rate: bp.scrap.rate,            total: bp.scrap.manualTotal !== false ? bp.scrap.manualTotal : boardingFootage * bp.scrap.rate },
-      beading:      { label: "Beading",           qty: bp.beading.qty,       rate: bp.beading.rate,          total: bp.beading.manualTotal !== false ? bp.beading.manualTotal : bp.beading.qty * bp.beading.rate },
+      beading:      { label: "Beading",           qty: bp.beading.manualQty ? bp.beading.qty : Math.round(tapingFootage * 0.115),       rate: bp.beading.rate,          total: bp.beading.manualTotal !== false ? bp.beading.manualTotal : (bp.beading.manualQty ? bp.beading.qty : Math.round(tapingFootage * 0.115)) * bp.beading.rate },
       taping:       { label: "Taping",            qty: tapingFootage,        rate: bp.taping.rate,           total: bp.taping.manualTotal !== false ? bp.taping.manualTotal : tapingFootage * bp.taping.rate },
       boardingDrive:{ label: "Boarding Drive",    qty: boardingDriveQty,     rate: bp.boardingDrive.rate,    total: bp.boardingDrive.manualTotal !== false ? bp.boardingDrive.manualTotal : boardingDriveQty * bp.boardingDrive.rate },
       tapingDrive:  { label: "Taping Drive",      qty: tapingDriveQty,       rate: bp.tapingDrive.rate,      total: bp.tapingDrive.manualTotal !== false ? bp.tapingDrive.manualTotal : tapingDriveQty * bp.tapingDrive.rate },
@@ -1901,10 +1900,9 @@ export default function TakeoffApp() {
           <div style={{ fontSize: 13, fontWeight: 800, color: "#34d399", marginLeft: 8 }}>${totalQuote.toFixed(0)}</div>
         </div>
 
-        <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
-          {/* Material Cost — collapsible breakdown */}
+        <div ref={budgetScrollRef} style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
+          {/* MATERIAL COSTS — single collapsible amber header, 4 sub-lines hidden by default */}
           {(() => {
-            // Build per-material breakdown
             const mats = selectedMaterials.length > 0 ? selectedMaterials : MATERIALS;
             const breakdown = [];
             mats.forEach(mat => {
@@ -1922,164 +1920,157 @@ export default function TakeoffApp() {
               });
               if (matSqFt > 0) breakdown.push({ mat, matSqFt, matCost, pricePsf });
             });
+            const materialTotal = materialCost + accessoryCost + cartage + pstAmt;
+            const COL = "1fr 72px 72px 80px";
             return (
-              <div style={{ background: "#1a1a2e", borderBottom: materialCostExpanded ? "none" : "1px solid #f59e0b44" }}>
-                {/* Header row — clickable */}
+              <div style={{ background: "#1a1a2e", borderBottom: "2px solid #f59e0b" }}>
+                {/* Single top-level amber summary row */}
                 <div
-                  style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px", padding: "8px 12px", alignItems: "center", cursor: "pointer", userSelect: "none" }}
+                  style={{ display: "grid", gridTemplateColumns: COL, padding: "10px 12px", alignItems: "center", cursor: "pointer", userSelect: "none" }}
                   onClick={() => setMaterialCostExpanded(x => !x)}
                 >
                   <div style={{ fontSize: 12, fontWeight: 800, color: "#f59e0b", letterSpacing: 1, display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontSize: 10, color: "#f59e0b" }}>{materialCostExpanded ? "▾" : "▸"}</span>
-                    BOARD MATERIAL
-                    {materialCostIsManual && <span style={{ fontSize: 10, color: "#f59e0b", marginLeft: 4 }}>⚠️ edited</span>}
+                    <span style={{ fontSize: 10 }}>{materialCostExpanded ? "▾" : "▸"}</span>
+                    MATERIAL COSTS
                   </div>
                   <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>{boardingFootage} ft²</div>
-                  <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>
-                    {materialCostIsManual ? (
-                      <button
-                        onClick={e => { e.stopPropagation(); openBudgetConfirm("Reset material cost back to auto-calculation?", () => updateBP("materialCost.manualTotal", undefined)); }}
-                        style={{ background: "none", border: "1px solid #334155", borderRadius: 4, color: "#64748b", fontSize: 10, padding: "2px 6px", cursor: "pointer" }}
-                      >↺ reset</button>
-                    ) : "auto"}
-                  </div>
-                  <button
-                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, color: "#f59e0b", textAlign: "right", padding: "12px 4px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
-                    onClick={e => { e.stopPropagation(); openBudgetEdit("Override Material Cost", materialCost.toFixed(2), v => updateBP("materialCost.manualTotal", parseFloat(v))); }}
-                  >${materialCost.toFixed(0)}<span style={{ fontSize: 11, color: "#475569", marginLeft: 3 }}>✏</span></button>
+                  <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>4 lines</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "#f59e0b", textAlign: "right" }}>${materialTotal.toFixed(0)}</div>
                 </div>
 
-                {/* Breakdown rows */}
+                {/* Expanded: all 4 sub-lines */}
                 {materialCostExpanded && (
-                  <div style={{ borderTop: "1px solid #1e3a5f", borderBottom: "1px solid #f59e0b44" }}>
-                    {breakdown.length === 0 ? (
-                      <div style={{ padding: "8px 16px", fontSize: 11, color: "#475569", fontStyle: "italic" }}>No materials entered yet.</div>
-                    ) : (
-                      <>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 60px 80px", padding: "4px 16px", background: "#0d1526" }}>
-                          <div style={{ fontSize: 9, color: "#334155", fontWeight: 700, letterSpacing: 1 }}>MATERIAL</div>
-                          <div style={{ fontSize: 9, color: "#334155", textAlign: "right" }}>FT²</div>
-                          <div style={{ fontSize: 9, color: "#334155", textAlign: "right" }}>$/FT²</div>
-                          <div style={{ fontSize: 9, color: "#334155", textAlign: "right" }}>TOTAL</div>
+                  <div style={{ borderTop: "1px solid #2a3a50" }}>
+
+                    {/* Sub-line: Board Material */}
+                    <div style={{ borderBottom: "1px solid #1e293b" }}>
+                      <div style={{ display: "grid", gridTemplateColumns: COL, padding: "0 12px", alignItems: "center", cursor: "pointer" }} onClick={() => setBoardBreakdownExpanded(x => !x)}>
+                        <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600, padding: "10px 0", display: "flex", alignItems: "center", gap: 5 }}>
+                          <span style={{ fontSize: 10, color: "#64748b" }}>{boardBreakdownExpanded ? "▾" : "▸"}</span>
+                          Board Material
+                          {materialCostIsManual && <span style={{ fontSize: 10, color: "#f59e0b", marginLeft: 4 }}>⚠</span>}
                         </div>
-                        {breakdown.map(({ mat, matSqFt, matCost, pricePsf }) => (
-                          <div key={mat} style={{ display: "grid", gridTemplateColumns: "1fr 60px 60px 80px", padding: "5px 16px", borderTop: "1px solid #1e293b", alignItems: "center" }}>
-                            <div style={{ fontSize: 11, color: "#94a3b8" }}>{mat}</div>
-                            <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>{matSqFt}</div>
-                            <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>${pricePsf?.toFixed(4) ?? "—"}</div>
-                            <div style={{ fontSize: 11, color: "#e2e8f0", textAlign: "right", fontWeight: 600 }}>${matCost.toFixed(0)}</div>
+                        <div style={{ fontSize: 13, color: "#64748b", textAlign: "right", padding: "10px 0" }}>{boardingFootage} ft²</div>
+                        <div style={{ fontSize: 13, color: "#64748b", textAlign: "right", padding: "10px 0" }}>
+                          {materialCostIsManual ? (
+                            <button onClick={e => { e.stopPropagation(); openBudgetConfirm("Reset material cost back to auto-calculation?", () => updateBP("materialCost.manualTotal", undefined)); }}
+                              style={{ background: "none", border: "1px solid #334155", borderRadius: 4, color: "#64748b", fontSize: 10, padding: "2px 6px", cursor: "pointer", touchAction: "manipulation" }}>↺</button>
+                          ) : "auto"}
+                        </div>
+                        <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, color: "#f59e0b", textAlign: "right", padding: "12px 0", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent", fontFamily: "inherit" }}
+                          onClick={e => { e.stopPropagation(); openBudgetEdit("Override Material Cost", materialCost.toFixed(2), v => updateBP("materialCost.manualTotal", parseFloat(v))); }}
+                        >${materialCost.toFixed(0)}</button>
+                      </div>
+                      {boardBreakdownExpanded && (
+                        <div style={{ background: "#0d1526", borderTop: "1px solid #1e293b" }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 72px 72px 80px", padding: "4px 12px 4px 24px" }}>
+                            <div style={{ fontSize: 9, color: "#334155", fontWeight: 700 }}>MATERIAL</div>
+                            <div style={{ fontSize: 9, color: "#334155", textAlign: "right" }}>FT²</div>
+                            <div style={{ fontSize: 9, color: "#334155", textAlign: "right" }}>$/FT²</div>
+                            <div style={{ fontSize: 9, color: "#334155", textAlign: "right" }}>TOTAL</div>
                           </div>
-                        ))}
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", padding: "5px 16px 8px", background: "#0d1526", borderTop: "1px solid #1e3a5f" }}>
-                          <div style={{ fontSize: 10, color: "#475569", fontWeight: 700 }}>BOARD MATERIAL SUBTOTAL</div>
-                          <div style={{ fontSize: 12, color: "#f59e0b", fontWeight: 800, textAlign: "right" }}>${materialCost.toFixed(0)}</div>
+                          {breakdown.length === 0 ? (
+                            <div style={{ padding: "6px 24px", fontSize: 11, color: "#475569", fontStyle: "italic" }}>No materials entered yet.</div>
+                          ) : breakdown.map(({ mat, matSqFt, matCost, pricePsf }) => (
+                            <div key={mat} style={{ display: "grid", gridTemplateColumns: "1fr 72px 72px 80px", padding: "4px 12px 4px 24px", borderTop: "1px solid #1e293b" }}>
+                              <div style={{ fontSize: 11, color: "#94a3b8" }}>{mat}</div>
+                              <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>{matSqFt}</div>
+                              <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>${pricePsf?.toFixed(3) ?? "—"}</div>
+                              <div style={{ fontSize: 11, color: "#e2e8f0", textAlign: "right", fontWeight: 600 }}>${matCost.toFixed(0)}</div>
+                            </div>
+                          ))}
                         </div>
-                      </>
-                    )}
+                      )}
+                    </div>
+
+                    {/* Sub-line: Accessories */}
+                    <div style={{ borderBottom: "1px solid #1e293b" }}>
+                      <div style={{ display: "grid", gridTemplateColumns: COL, padding: "0 12px", alignItems: "center", cursor: "pointer" }} onClick={() => setAccessoryCostExpanded(x => !x)}>
+                        <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600, padding: "10px 0", display: "flex", alignItems: "center", gap: 5 }}>
+                          <span style={{ fontSize: 10, color: "#64748b" }}>{accessoryCostExpanded ? "▾" : "▸"}</span>
+                          Accessories
+                          {accessoryCostIsManual && <span style={{ fontSize: 10, color: "#f59e0b", marginLeft: 4 }}>⚠</span>}
+                        </div>
+                        <div style={{ fontSize: 13, color: "#64748b", textAlign: "right", padding: "10px 0" }}>{accBreakdown.length} items</div>
+                        <div style={{ fontSize: 13, color: "#64748b", textAlign: "right", padding: "10px 0" }}>
+                          {accessoryCostIsManual ? (
+                            <button onClick={e => { e.stopPropagation(); openBudgetConfirm("Reset accessory cost back to auto-calculation?", () => updateBP("accessoryCost.manualTotal", undefined)); }}
+                              style={{ background: "none", border: "1px solid #334155", borderRadius: 4, color: "#64748b", fontSize: 10, padding: "2px 6px", cursor: "pointer", touchAction: "manipulation" }}>↺</button>
+                          ) : "auto"}
+                        </div>
+                        <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, color: "#f59e0b", textAlign: "right", padding: "12px 0", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent", fontFamily: "inherit" }}
+                          onClick={e => { e.stopPropagation(); openBudgetEdit("Override Accessory Cost", accessoryCost.toFixed(2), v => updateBP("accessoryCost.manualTotal", parseFloat(v))); }}
+                        >${accessoryCost.toFixed(0)}</button>
+                      </div>
+                      {accessoryCostExpanded && (
+                        <div style={{ background: "#0d1526", borderTop: "1px solid #1e293b" }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 72px 72px 80px", padding: "4px 12px 4px 24px" }}>
+                            <div style={{ fontSize: 9, color: "#334155", fontWeight: 700 }}>ITEM</div>
+                            <div style={{ fontSize: 9, color: "#334155", textAlign: "right" }}>QTY</div>
+                            <div style={{ fontSize: 9, color: "#334155", textAlign: "right" }}>RATE</div>
+                            <div style={{ fontSize: 9, color: "#334155", textAlign: "right" }}>TOTAL</div>
+                          </div>
+                          {accBreakdown.length === 0 ? (
+                            <div style={{ padding: "6px 24px", fontSize: 11, color: "#475569", fontStyle: "italic" }}>No accessories added yet.</div>
+                          ) : accBreakdown.map((row, i) => (
+                            <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 72px 72px 80px", padding: "4px 12px 4px 24px", borderTop: "1px solid #1e293b" }}>
+                              <div style={{ fontSize: 11, color: "#94a3b8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{row.label}</div>
+                              <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>{row.qty}</div>
+                              <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>${row.price.toFixed(2)}</div>
+                              <div style={{ fontSize: 11, color: "#e2e8f0", textAlign: "right", fontWeight: 600 }}>${row.total.toFixed(0)}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sub-line: Cartage */}
+                    <div style={{ borderBottom: "1px solid #1e293b", display: "grid", gridTemplateColumns: COL, padding: "0 12px", alignItems: "center" }}>
+                      <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600, padding: "10px 0" }}>
+                        Cartage
+                        {cartageIsManual && <span style={{ fontSize: 10, color: "#f59e0b", marginLeft: 4 }}>⚠</span>}
+                        {cartageIsMinimum && !cartageIsManual && <span style={{ fontSize: 10, color: "#94a3b8", marginLeft: 4 }}>min</span>}
+                      </div>
+                      <div style={{ fontSize: 13, color: "#64748b", textAlign: "right", padding: "10px 0" }}>{boardingFootage > 0 ? `${boardingFootage} ft²` : "—"}</div>
+                      <div style={{ fontSize: 13, color: "#64748b", textAlign: "right", padding: "10px 0" }}>
+                        {cartageIsManual ? (
+                          <button onClick={() => openBudgetConfirm("Reset cartage back to auto-calculation? ($0.065/ft² · min $250)", () => updateBP("cartage.manualTotal", undefined))}
+                            style={{ background: "none", border: "1px solid #334155", borderRadius: 4, color: "#64748b", fontSize: 10, padding: "2px 6px", cursor: "pointer", touchAction: "manipulation" }}>↺</button>
+                        ) : "$0.065"}
+                      </div>
+                      <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, color: "#f59e0b", textAlign: "right", padding: "12px 0", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent", fontFamily: "inherit" }}
+                        onClick={() => openBudgetEdit("Override Cartage", cartage.toFixed(2), v => updateBP("cartage.manualTotal", parseFloat(v)))}
+                      >${cartage.toFixed(0)}</button>
+                    </div>
+
+                    {/* Sub-line: PST */}
+                    <div style={{ display: "grid", gridTemplateColumns: COL, padding: "0 12px", alignItems: "center" }}>
+                      <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600, padding: "10px 0" }}>
+                        PST <span style={{ fontSize: 10, color: "#64748b", fontWeight: 400 }}>boards + acc</span>
+                      </div>
+                      <div style={{ fontSize: 13, color: "#64748b", textAlign: "right", padding: "10px 0" }}>${(materialCost + accessoryCost).toFixed(0)}</div>
+                      <div style={{ fontSize: 13, color: "#64748b", textAlign: "right", padding: "10px 0" }}>7%</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#64748b", textAlign: "right", padding: "10px 0" }}>${pstAmt.toFixed(0)}</div>
+                    </div>
+
                   </div>
                 )}
               </div>
             );
           })()}
 
-          {/* Accessory Cost — collapsible */}
-          {(() => {
-            return (
-              <div style={{ background: "#1a1a2e", borderBottom: accessoryCostExpanded ? "none" : "1px solid #f59e0b44" }}>
-                <div
-                  style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px", padding: "8px 12px", alignItems: "center", cursor: "pointer", userSelect: "none" }}
-                  onClick={() => setAccessoryCostExpanded(x => !x)}
-                >
-                  <div style={{ fontSize: 12, fontWeight: 800, color: "#f59e0b", letterSpacing: 1, display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontSize: 10 }}>{accessoryCostExpanded ? "▾" : "▸"}</span>
-                    ACCESSORIES
-                    {accessoryCostIsManual && <span style={{ fontSize: 10, color: "#f59e0b", marginLeft: 4 }}>⚠️ edited</span>}
-                  </div>
-                  <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>{accBreakdown.length} items</div>
-                  <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>
-                    {accessoryCostIsManual ? (
-                      <button
-                        onClick={e => { e.stopPropagation(); openBudgetConfirm("Reset accessory cost back to auto-calculation?", () => updateBP("accessoryCost.manualTotal", undefined)); }}
-                        style={{ background: "none", border: "1px solid #334155", borderRadius: 4, color: "#64748b", fontSize: 10, padding: "2px 6px", cursor: "pointer" }}
-                      >↺ reset</button>
-                    ) : "auto"}
-                  </div>
-                  <button
-                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, color: "#f59e0b", textAlign: "right", padding: "12px 4px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
-                    onClick={e => { e.stopPropagation(); openBudgetEdit("Override Accessory Cost", accessoryCost.toFixed(2), v => updateBP("accessoryCost.manualTotal", parseFloat(v))); }}
-                  >${accessoryCost.toFixed(0)}<span style={{ fontSize: 11, color: "#475569", marginLeft: 3 }}>✏</span></button>
-                </div>
-                {accessoryCostExpanded && (
-                  <div style={{ borderTop: "1px solid #1e3a5f", borderBottom: "1px solid #f59e0b44" }}>
-                    {accBreakdown.length === 0 ? (
-                      <div style={{ padding: "8px 16px", fontSize: 11, color: "#475569", fontStyle: "italic" }}>No accessories added yet.</div>
-                    ) : (
-                      <>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 50px 60px 80px", padding: "4px 16px", background: "#0d1526" }}>
-                          <div style={{ fontSize: 9, color: "#334155", fontWeight: 700, letterSpacing: 1 }}>ITEM</div>
-                          <div style={{ fontSize: 9, color: "#334155", textAlign: "right" }}>QTY</div>
-                          <div style={{ fontSize: 9, color: "#334155", textAlign: "right" }}>RATE</div>
-                          <div style={{ fontSize: 9, color: "#334155", textAlign: "right" }}>TOTAL</div>
-                        </div>
-                        {accBreakdown.map((row, i) => (
-                          <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 50px 60px 80px", padding: "5px 16px", borderTop: "1px solid #1e293b", alignItems: "center" }}>
-                            <div style={{ fontSize: 11, color: "#94a3b8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{row.label}</div>
-                            <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>{row.qty}</div>
-                            <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>${row.price.toFixed(2)}</div>
-                            <div style={{ fontSize: 11, color: "#e2e8f0", textAlign: "right", fontWeight: 600 }}>${row.total.toFixed(0)}</div>
-                          </div>
-                        ))}
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", padding: "5px 16px 8px", background: "#0d1526", borderTop: "1px solid #1e3a5f" }}>
-                          <div style={{ fontSize: 10, color: "#475569", fontWeight: 700 }}>ACCESSORY SUBTOTAL</div>
-                          <div style={{ fontSize: 12, color: "#f59e0b", fontWeight: 800, textAlign: "right" }}>${accessoryCost.toFixed(0)}</div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* Cartage */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px", padding: "8px 12px", background: "#1a1a2e", borderBottom: "1px solid #f59e0b44", alignItems: "center" }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: "#f59e0b", letterSpacing: 1 }}>
-              CARTAGE
-              {cartageIsManual && <span style={{ fontSize: 10, color: "#f59e0b", marginLeft: 6 }}>⚠️ edited</span>}
-              {cartageIsMinimum && !cartageIsManual && <span style={{ fontSize: 10, color: "#94a3b8", marginLeft: 6 }}>min charge</span>}
+          {/* Column headers + legend */}
+          <div style={{ padding: "6px 12px 4px", background: "#0d1526", borderBottom: "1px solid #1e3a5f" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 72px 72px 80px", marginBottom: 4 }}>
+              <div style={{ fontSize: 10, color: "#475569", fontWeight: 700, letterSpacing: 1 }}>LABOUR BUDGET</div>
+              <div style={{ fontSize: 10, color: "#475569", textAlign: "right" }}>QTY</div>
+              <div style={{ fontSize: 10, color: "#475569", textAlign: "right" }}>RATE</div>
+              <div style={{ fontSize: 10, color: "#475569", textAlign: "right" }}>TOTAL</div>
             </div>
-            <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>{boardingFootage > 0 ? `${boardingFootage} ft²` : "—"}</div>
-            <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>
-              {cartageIsManual ? (
-                <button
-                  onClick={() => { openBudgetConfirm("Reset cartage back to auto-calculation? ($0.065/ft² · min $250)", () => updateBP("cartage.manualTotal", undefined)); }}
-                  style={{ background: "none", border: "1px solid #334155", borderRadius: 4, color: "#64748b", fontSize: 10, padding: "2px 6px", cursor: "pointer" }}
-                >↺ reset</button>
-              ) : "$0.065/ft²"}
+            <div style={{ display: "flex", gap: 12, paddingBottom: 2 }}>
+              <span style={{ fontSize: 10, color: "#475569" }}><span style={{ color: "#f59e0b" }}>■</span> tap to edit</span>
+              <span style={{ fontSize: 10, color: "#475569" }}><span style={{ color: "#64748b" }}>■</span> not editable</span>
             </div>
-            <button
-              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, color: "#f59e0b", textAlign: "right", padding: "12px 4px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
-              onClick={() => openBudgetEdit("Override Cartage", cartage.toFixed(2), v => updateBP("cartage.manualTotal", parseFloat(v)))}
-            >${cartage.toFixed(0)}<span style={{ fontSize: 11, color: "#475569", marginLeft: 3 }}>✏</span></button>
-          </div>
-
-          {/* PST — 7% on board material + accessories (excludes cartage) */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px", padding: "8px 12px", background: "#1a1a2e", borderBottom: "2px solid #f59e0b", alignItems: "center" }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: "#f59e0b", letterSpacing: 1 }}>
-              PST
-              <span style={{ fontSize: 10, color: "#64748b", fontWeight: 400, marginLeft: 6 }}>boards + acc</span>
-            </div>
-            <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>${(materialCost + accessoryCost).toFixed(0)}</div>
-            <div style={{ fontSize: 11, color: "#64748b", textAlign: "right" }}>7%</div>
-            <div style={{ fontSize: 13, fontWeight: 800, color: "#f59e0b", textAlign: "right" }}>${pstAmt.toFixed(0)}</div>
-          </div>
-
-          {/* Column headers */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 80px", padding: "6px 12px", background: "#0d1526", borderBottom: "1px solid #1e3a5f" }}>
-            <div style={{ fontSize: 10, color: "#475569", fontWeight: 700, letterSpacing: 1 }}>LABOUR BUDGET</div>
-            <div style={{ fontSize: 10, color: "#475569", textAlign: "right" }}>QTY</div>
-            <div style={{ fontSize: 10, color: "#475569", textAlign: "right" }}>RATE</div>
-            <div style={{ fontSize: 10, color: "#475569", textAlign: "right" }}>TOTAL</div>
           </div>
 
           <BPRow rowKey="resBar" row={rows.resBar} qtyEditable qtyPath="qty" budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
@@ -2094,30 +2085,14 @@ export default function TakeoffApp() {
             const isManual = row.manualTotal !== false;
             return (
               <div key={row.id} style={{ borderBottom: "1px solid #1e293b", background: "#0d1a2a" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 70px 72px", alignItems: "center", padding: "4px 12px 4px 8px", gap: 4 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 72px 72px 80px", alignItems: "center", padding: "0 12px 0 8px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
-                    <button
-                      style={{ background: "none", border: "none", color: "#ef4444", fontSize: 18, cursor: "pointer", padding: "4px 4px", touchAction: "manipulation", flexShrink: 0, lineHeight: 1 }}
-                      onClick={() => deleteCustomLabour(row.id)}
-                    >✕</button>
-                    <input
-                      style={{ background: "transparent", border: "none", borderBottom: "1px solid #334155", color: "#e2e8f0", fontSize: 13, fontWeight: 600, padding: "2px 0", outline: "none", minWidth: 0, flex: 1 }}
-                      value={row.label}
-                      onChange={(e) => updateCustomLabour(row.id, "label", e.target.value)}
-                    />
+                    <button style={{ background: "none", border: "none", color: "#ef4444", fontSize: 18, cursor: "pointer", padding: "4px", touchAction: "manipulation", flexShrink: 0, lineHeight: 1 }} onClick={() => deleteCustomLabour(row.id)}>✕</button>
+                    <input style={{ background: "transparent", border: "none", borderBottom: "1px solid #334155", color: "#e2e8f0", fontSize: 13, fontWeight: 600, padding: "2px 0", outline: "none", minWidth: 0, flex: 1 }} value={row.label} onChange={(e) => updateCustomLabour(row.id, "label", e.target.value)} />
                   </div>
-                  <button
-                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#94a3b8", textAlign: "right", padding: "12px 4px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
-                    onClick={() => openBudgetEdit(`Qty: ${row.label}`, row.qty, v => { updateCustomLabour(row.id, "qty", v); updateCustomLabour(row.id, "manualTotal", false); })}
-                  >{row.qty}<span style={{ fontSize: 11, color: "#475569", marginLeft: 3 }}>✏</span></button>
-                  <button
-                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#64748b", textAlign: "right", padding: "12px 4px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
-                    onClick={() => openBudgetEdit(`Rate: ${row.label}`, row.rate, v => { updateCustomLabour(row.id, "rate", v); updateCustomLabour(row.id, "manualTotal", false); })}
-                  >${row.rate}<span style={{ fontSize: 11, color: "#475569", marginLeft: 3 }}>✏</span></button>
-                  <button
-                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, color: isManual ? "#f59e0b" : "#34d399", textAlign: "right", padding: "12px 4px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
-                    onClick={() => openBudgetEdit(`Override Total: ${row.label}`, total.toFixed(2), v => updateCustomLabour(row.id, "manualTotal", v))}
-                  >${total.toFixed(0)}{isManual && <span style={{ fontSize: 9, color: "#f59e0b", marginLeft: 2 }}>⚠️</span>}</button>
+                  <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#f59e0b", textAlign: "right", padding: "12px 0", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent", fontFamily: "inherit" }} onClick={() => openBudgetEdit(`Qty: ${row.label}`, row.qty, v => { updateCustomLabour(row.id, "qty", v); updateCustomLabour(row.id, "manualTotal", false); })}>{row.qty}</button>
+                  <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#f59e0b", textAlign: "right", padding: "12px 0", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent", fontFamily: "inherit" }} onClick={() => openBudgetEdit(`Rate: ${row.label}`, row.rate, v => { updateCustomLabour(row.id, "rate", v); updateCustomLabour(row.id, "manualTotal", false); })}>${row.rate}</button>
+                  <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, color: "#f59e0b", textAlign: "right", padding: "12px 0", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent", fontFamily: "inherit" }} onClick={() => openBudgetEdit(`Override Total: ${row.label}`, total.toFixed(2), v => updateCustomLabour(row.id, "manualTotal", v))}>${total.toFixed(0)}{isManual && <span style={{ fontSize: 9, color: "#f59e0b", marginLeft: 2 }}>⚠</span>}</button>
                 </div>
               </div>
             );
@@ -2144,27 +2119,19 @@ export default function TakeoffApp() {
           </div>
 
           {/* OH */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 72px 84px", padding: "0 6px 0 12px", borderBottom: "1px solid #1e293b", alignItems: "center" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 72px 72px 80px", padding: "0 12px", borderBottom: "1px solid #1e293b", alignItems: "center" }}>
             <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600, padding: "10px 0" }}>Overhead</div>
-            <button
-              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#64748b", textAlign: "right", padding: "12px 8px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
-              onClick={() => openBudgetEdit("Overhead %", bp.overhead.pct, v => updateBP("overhead.pct", v))}
-            >
-              {bp.overhead.pct}%<span style={{ fontSize: 11, color: "#475569", marginLeft: 3 }}>✏</span>
-            </button>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#34d399", textAlign: "right", padding: "10px 6px" }}>${ohAmt.toFixed(0)}</div>
+            <div />
+            <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#f59e0b", textAlign: "right", padding: "12px 0", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent", fontFamily: "inherit" }} onClick={() => openBudgetEdit("Overhead %", bp.overhead.pct, v => updateBP("overhead.pct", v))}>{bp.overhead.pct}%</button>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#64748b", textAlign: "right", padding: "10px 0" }}>${ohAmt.toFixed(0)}</div>
           </div>
 
           {/* Profit */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 72px 84px", padding: "0 6px 0 12px", borderBottom: "2px solid #334155", alignItems: "center" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 72px 72px 80px", padding: "0 12px", borderBottom: "2px solid #334155", alignItems: "center" }}>
             <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600, padding: "10px 0" }}>Profit</div>
-            <button
-              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#64748b", textAlign: "right", padding: "12px 8px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
-              onClick={() => openBudgetEdit("Profit %", bp.profit.pct, v => updateBP("profit.pct", v))}
-            >
-              {bp.profit.pct}%<span style={{ fontSize: 11, color: "#475569", marginLeft: 3 }}>✏</span>
-            </button>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#34d399", textAlign: "right", padding: "10px 6px" }}>${profitAmt.toFixed(0)}</div>
+            <div />
+            <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#f59e0b", textAlign: "right", padding: "12px 0", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent", fontFamily: "inherit" }} onClick={() => openBudgetEdit("Profit %", bp.profit.pct, v => updateBP("profit.pct", v))}>{bp.profit.pct}%</button>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#64748b", textAlign: "right", padding: "10px 0" }}>${profitAmt.toFixed(0)}</div>
           </div>
 
           {/* Total Quote */}
@@ -2174,7 +2141,7 @@ export default function TakeoffApp() {
           </div>
 
           <div style={{ padding: "8px 12px 24px" }}>
-            <div style={{ fontSize: 10, color: "#334155", textAlign: "center" }}>Tap any QTY, RATE, or TOTAL to edit · ⚠️ = manually overridden</div>
+            <div style={{ fontSize: 10, color: "#334155", textAlign: "center" }}>⚠ = manually overridden · ↺ to reset to auto</div>
           </div>
         </div>
 
@@ -2503,13 +2470,12 @@ export default function TakeoffApp() {
   if (screen === "pricing") {
     if (!isPricingUnlocked) {
       return (
-        <div style={{ ...styles.shell, maxWidth: 520, alignItems: "center", justifyContent: "center" }}>
+        <div style={{ ...styles.shell, maxWidth: 520, alignItems: "center", justifyContent: "center", overflowY: "auto" }}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 24px", width: "100%", gap: 16 }}>
             <div style={{ fontSize: 28 }}>🔒</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: "#e2e8f0" }}>Admin Pricing</div>
             <div style={{ fontSize: 13, color: "#64748b", textAlign: "center" }}>Enter admin password to view and edit material prices</div>
             <input
-              autoFocus
               type="password"
               placeholder="Admin password"
               value={adminPriceInput}
@@ -2524,8 +2490,8 @@ export default function TakeoffApp() {
             />
             {adminPriceError && <div style={{ color: "#ef4444", fontSize: 12 }}>Incorrect password</div>}
             <button onClick={() => { if (adminPriceInput === "MBDW2025P") { setIsPricingUnlocked(true); setAdminPriceInput(""); } else setAdminPriceError(true); }}
-              style={{ background: "#2563eb", border: "none", borderRadius: 8, color: "#fff", fontWeight: 700, fontSize: 14, padding: "10px 28px", cursor: "pointer" }}>Unlock</button>
-            <button onClick={() => setScreen("home")} style={{ background: "none", border: "none", color: "#64748b", fontSize: 13, cursor: "pointer" }}>← Back</button>
+              style={{ background: "#2563eb", border: "none", borderRadius: 8, color: "#fff", fontWeight: 700, fontSize: 14, padding: "10px 28px", cursor: "pointer", touchAction: "manipulation" }}>Unlock</button>
+            <button onClick={() => setScreen("home")} style={{ background: "none", border: "none", color: "#64748b", fontSize: 13, cursor: "pointer", touchAction: "manipulation" }}>← Back</button>
           </div>
         </div>
       );
