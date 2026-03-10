@@ -338,7 +338,7 @@ function BPRow({ rowKey, row, qtyEditable = false, qtyPath = null, showNoTape = 
 
 export default function TakeoffApp() {
   // Fix full-height layout on mobile — must be 100dvh not 100vh
-  React.useEffect(() => {
+  useEffect(() => {
     const style = document.createElement("style");
     style.textContent = "html,body,#root{height:100%;margin:0;padding:0;overflow:hidden;}";
     document.head.appendChild(style);
@@ -387,6 +387,7 @@ export default function TakeoffApp() {
   const toggleSection = (cat) => setCollapsedSections(prev => ({ ...prev, [cat]: !prev[cat] }));
   const [showNewAreaModal, setShowNewAreaModal] = useState(false);
   const [newAreaName, setNewAreaName] = useState("");
+  const [showNotesModal, setShowNotesModal] = useState(false);
   const [showMaterialPicker, setShowMaterialPicker] = useState(false);
   const [selectedMaterials, setSelectedMaterials] = useState(() => {
     try {
@@ -671,6 +672,10 @@ export default function TakeoffApp() {
     );
     setNewAreaName("");
     setShowNewAreaModal(false);
+  };
+
+  const updateJobNotes = (notes) => {
+    setJobs(prev => prev.map(j => j.id !== currentJobId ? j : { ...j, notes }));
   };
 
   const deleteArea = (areaId) => {
@@ -1392,6 +1397,19 @@ export default function TakeoffApp() {
               </div>
             ))}
           </div>
+
+          {/* Site Notes */}
+          <div style={{ marginTop: 12 }}>
+            <div style={styles.sectionRow}>
+              <span style={styles.sectionLabel}>SITE NOTES</span>
+            </div>
+            <button
+              onClick={() => setShowNotesModal(true)}
+              style={{ width: "100%", background: "#0d1a2a", border: "1px solid #1e293b", borderRadius: 10, padding: "10px 12px", textAlign: "left", cursor: "pointer", color: currentJob?.notes ? "#cbd5e1" : "#475569", fontSize: 13, lineHeight: 1.55, display: "block", maxHeight: 88, overflowY: "auto", boxSizing: "border-box", whiteSpace: "pre-wrap", wordBreak: "break-word", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+            >
+              {currentJob?.notes || "Tap to add site notes…"}
+            </button>
+          </div>
           </div>{/* end left col */}
 
           <div>
@@ -1449,6 +1467,32 @@ export default function TakeoffApp() {
         {toast && (
           <div style={styles.toast}>{toast}</div>
         )}
+
+        {showNotesModal && (() => {
+          const overlayStyle = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" };
+          const sheetStyle = { background: "#0d1526", borderRadius: "16px 16px 0 0", padding: "20px 20px 36px", width: "100%", maxWidth: 520, boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 12 };
+          return (
+            <div style={overlayStyle} onClick={() => setShowNotesModal(false)}>
+              <div style={sheetStyle} onClick={e => e.stopPropagation()}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontWeight: 800, fontSize: 16, color: "#e2e8f0" }}>📋 Site Notes</span>
+                  <button onClick={() => setShowNotesModal(false)} style={{ background: "#1e293b", border: "none", color: "#94a3b8", borderRadius: 8, width: 32, height: 32, cursor: "pointer", fontSize: 16, touchAction: "manipulation" }}>✕</button>
+                </div>
+                <textarea
+                  autoFocus
+                  value={currentJob?.notes || ""}
+                  onChange={e => updateJobNotes(e.target.value)}
+                  placeholder="Add notes about this job — special conditions, site access, customer requests, material callouts…"
+                  style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 10, color: "#e2e8f0", fontSize: 14, padding: "12px 14px", resize: "none", outline: "none", lineHeight: 1.6, minHeight: 180, maxHeight: "50dvh", overflowY: "auto", boxSizing: "border-box", width: "100%", fontFamily: "inherit" }}
+                />
+                <button
+                  onClick={() => setShowNotesModal(false)}
+                  style={{ background: "#2563eb", border: "none", borderRadius: 10, color: "#fff", fontSize: 15, fontWeight: 700, padding: "13px 0", cursor: "pointer", touchAction: "manipulation" }}
+                >Done</button>
+              </div>
+            </div>
+          );
+        })()}
 
         {showNewAreaModal && (
           <Modal title="New Area" onClose={() => setShowNewAreaModal(false)}>
