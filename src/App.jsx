@@ -1167,7 +1167,7 @@ export default function TakeoffApp() {
       );
       // Consolidated pricing sheet — one row per material type
       csv += `"=== PRICING SHEET — FILL IN UNIT PRICES BELOW ==="\n`;
-      csv += `"Material","Total Sq Ft","$/SQ FT  ← FILL IN"\n`;
+      csv += `"Material","Total Sq Ft","$/SQ FT  << FILL IN"\n`;
       usedMats.forEach(mat => {
         const totalSqft = currentJob.areas.reduce((s, area) =>
           s + LENGTHS.reduce((ss, len) => ss + (area.data[mat]?.[len] || 0) * sheetWidth(mat) * lenFeet(len), 0), 0);
@@ -1179,7 +1179,7 @@ export default function TakeoffApp() {
       const usedAccessories2 = (currentJob.accessories || []).filter(a => a.qty > 0 || (a.lines && a.lines.some(l => l.qty > 0)));
       if (usedAccessories2.length > 0) {
         csv += `"=== ACCESSORY PRICING — FILL IN UNIT PRICES BELOW ==="\n`;
-        csv += `"Product","Unit","Unit Price  ← FILL IN"\n`;
+        csv += `"Product","Unit","Unit Price  << FILL IN"\n`;
         const seenAcc = new Set();
         usedAccessories2.forEach(a => {
           const code = a.product.split(" ")[0];
