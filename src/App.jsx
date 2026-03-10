@@ -331,10 +331,10 @@ function BPRow({ rowKey, row, qtyEditable = false, qtyPath = null, showNoTape = 
 }
 
 export default function TakeoffApp() {
-  // Fix full-height layout on mobile — must be 100dvh not 100vh
+  // Fix full-height layout on mobile
   useEffect(() => {
     const style = document.createElement("style");
-    style.textContent = "html,body,#root{height:100%;margin:0;padding:0;overflow:hidden;}";
+    style.textContent = "html,body{height:100%;margin:0;padding:0;overflow:hidden;}#root{height:100%;overflow:hidden;}";
     document.head.appendChild(style);
     return () => document.head.removeChild(style);
   }, []);
@@ -1482,7 +1482,7 @@ export default function TakeoffApp() {
                   value={currentJob?.notes || ""}
                   onChange={e => updateJobNotes(e.target.value)}
                   placeholder="Add notes about this job — special conditions, site access, customer requests, material callouts…"
-                  style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 10, color: "#e2e8f0", fontSize: 14, padding: "12px 14px", resize: "none", outline: "none", lineHeight: 1.6, minHeight: 180, maxHeight: "50dvh", overflowY: "auto", boxSizing: "border-box", width: "100%", fontFamily: "inherit" }}
+                  style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 10, color: "#e2e8f0", fontSize: 14, padding: "12px 14px", resize: "none", outline: "none", lineHeight: 1.6, minHeight: 180, maxHeight: "50vh", overflowY: "auto", boxSizing: "border-box", width: "100%", fontFamily: "inherit" }}
                 />
                 <button
                   onClick={() => setShowNotesModal(false)}
@@ -2721,8 +2721,7 @@ function Modal({ title, onClose, children, tall }) {
 // ─── STYLES ──────────────────────────────────────────────────────────────────
 const styles = {
   shell: {
-    height: "100dvh",
-    maxHeight: "100dvh",
+    height: "100%",
     background: "#0a0f1e",
     color: "#e2e8f0",
     fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
@@ -2902,7 +2901,7 @@ const styles = {
     maxWidth: "100vw",
     boxSizing: "border-box",
     gap: 12,
-    maxHeight: "85dvh",
+    maxHeight: "85vh",
     overflowY: "auto",
   },
   modalHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
