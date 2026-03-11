@@ -74,7 +74,7 @@ const getSqftPrice = (prices, mat) => {
 // Stored in localStorage key: takeoff_acc_prices (overrides these defaults)
 const DEFAULT_ACC_PRICES = {
   // Mud & Tape
-  "RPHBTP":   { price: 7.80,   unit: "roll" },  // TPJT500 — Joint Tape 500'
+  "RPHBTP":   { price: 8.60,   unit: "roll" },  // TPJT500 — Joint Tape 500'
   "SYLLJT17": { price: 23.00,  unit: "box"  },  // CGC-332032 — Synko Lite Joint Taping 17L
   "SYCLFN17": { price: 23.00,  unit: "box"  },  // CGC-332038 — Synko Classic Finish 17L
   "HMRL17":   { price: 23.50,  unit: "box"  },  // HM-18061CD — Hamilton Redline 17L
@@ -178,6 +178,31 @@ const BEAD_PRODUCTS = [
 ];
 const isBeadProduct = (product) => BEAD_PRODUCTS.some(code => product.startsWith(code));
 
+// Available stick lengths per bead product (for field stick-count mode)
+const BEAD_LENGTHS = {
+  "PBTBD":  [7, 8, 9, 10, 12],   // CGC-283839 Bulldog — confirmed from price list
+  "B1XW":   [7, 8, 9, 10, 12],   // CGC-B1XWEL Extra Wide — confirmed
+  "PJC58":  [7, 8, 10, 12],      // 5/8" Plastic J — confirmed, no 9'
+  "PJC12":  [7, 8, 10, 12],      // 1/2" Plastic J — confirmed, no 9'
+  "PBB9":   [7, 8, 10],          // CGC-B912 1/2" Paper J — confirmed
+  "PB58A9": [7, 8, 10],          // 5/8" Paper J — confirmed, no 9'
+  "VB41":   [8, 10],              // Archway corner bead — confirmed
+  "VB9000": [8, 10],              // Flat tear away — confirmed
+  "B412":   [7, 8, 10],           // CGC-B412 1/2" L-Trim — confirmed
+  "B458":   [7, 8, 10, 12],       // CGC-B458 5/8" L-Trim — confirmed
+};
+const getBeadLengths = (product) => {
+  const code = BEAD_PRODUCTS.find(c => product.startsWith(c));
+  return code ? (BEAD_LENGTHS[code] || [8, 9, 10]) : [8, 9, 10];
+};
+
+// Metal & Track + Fasteners use multi-line qty+area entry
+const MULTI_LINE_PRODUCTS = [
+  "MS18RES", "MS18124", "MS18HAT",
+  "ADDSA2", "ADDSA4", "DS001F", "JW15104", "DS114C", "DS002C", "DS002F",
+];
+const isMultiLineProduct = (product) => MULTI_LINE_PRODUCTS.some(code => product.startsWith(code));
+
 const DEFAULT_AREAS = ["Upper Floor", "Main Floor", "Basement", "Basement Suite", "Garage"];
 const MULTIFAMILY_AREAS = ["Unit 1", "Unit 2", "Unit 3", "Unit 4", "Unit 5", "Unit 6"];
 
@@ -211,7 +236,9 @@ const initBudgetPricing = () => ({
   manualOverrides: {},
 });
 
-const initJob = (name, jobNumber = "", type = "single") => ({
+const DEFAULT_MATERIALS_FALLBACK = [MATERIALS[2], MATERIALS[0], MATERIALS[7], MATERIALS[1]];
+
+const initJob = (name, jobNumber = "", type = "single", defaultMaterials = DEFAULT_MATERIALS_FALLBACK) => ({
   id: generateId(),
   name,
   jobNumber,
@@ -219,6 +246,7 @@ const initJob = (name, jobNumber = "", type = "single") => ({
   contact: "",
   areas: (type === "multi" ? MULTIFAMILY_AREAS : DEFAULT_AREAS).map((a) => ({ id: generateId(), name: a, data: initAreaData() })),
   accessories: ALL_ACCESSORIES.map((p) => ({ product: p, qty: 0, placement: "General" })),
+  selectedMaterials: [...defaultMaterials],
   ...(type === "budget" ? { budgetPricing: initBudgetPricing() } : {}),
 });
 
@@ -713,10 +741,19 @@ function BPRow({ rowKey, row, qtyEditable = false, qtyPath = null, showNoTape = 
           style={{ ...btnBase, fontSize: 13, color: "#f59e0b" }}
           onClick={() => { const rateKey = rowKey === "management" ? "costPerTrip" : "rate"; openBudgetEdit(`Rate: ${row.label}`, row.rate, v => { updateBP(`${rowKey}.${rateKey}`, v); updateBP(`${rowKey}.manualTotal`, false); }); }}
         >${row.rate}</button>
-        <button
-          style={{ ...btnBase, fontSize: 13, fontWeight: 700, color: "#f59e0b" }}
-          onClick={() => openBudgetEdit(`Override Total: ${row.label}`, row.total?.toFixed(2) ?? "0", v => updateBP(`${rowKey}.manualTotal`, v))}
-        >${(row.total || 0).toFixed(0)}</button>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
+          {isManual && (
+            <button
+              title="Reset to auto-calculated"
+              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#64748b", padding: "0 2px", lineHeight: 1 }}
+              onClick={() => updateBP(`${rowKey}.manualTotal`, false)}
+            >↺</button>
+          )}
+          <button
+            style={{ ...btnBase, fontSize: 13, fontWeight: 700, color: isManual ? "#f59e0b" : "#f59e0b", width: "auto", padding: "12px 0" }}
+            onClick={() => openBudgetEdit(`Override Total: ${row.label}`, row.total?.toFixed(2) ?? "0", v => updateBP(`${rowKey}.manualTotal`, v))}
+          >${(row.total || 0).toFixed(0)}{isManual && <span style={{ fontSize: 9, marginLeft: 2 }}>⚠</span>}</button>
+        </div>
       </div>
       {showNoTape && (
         <div style={{ padding: "4px 12px 8px", borderTop: "1px solid #0f172a" }}>
@@ -771,7 +808,17 @@ export default function TakeoffApp() {
   const [jobs, setJobs] = useState(() => {
     try {
       const saved = localStorage.getItem("takeoff_jobs");
-      return saved ? JSON.parse(saved) : [];
+      const parsed = saved ? JSON.parse(saved) : [];
+      // Migration: if any job is missing selectedMaterials, assign defaults
+      // Try to recover the old global selectedMaterials if it exists
+      const globalMats = (() => {
+        try {
+          const gm = localStorage.getItem("takeoff_selectedMaterials");
+          return gm ? JSON.parse(gm) : null;
+        } catch { return null; }
+      })();
+      const defaultMats = [MATERIALS[2], MATERIALS[0], MATERIALS[7], MATERIALS[1]];
+      return parsed.map(j => j.selectedMaterials ? j : { ...j, selectedMaterials: globalMats || defaultMats });
     } catch { return []; }
   });
   const [currentJobId, setCurrentJobId] = useState(() => {
@@ -812,12 +859,37 @@ export default function TakeoffApp() {
   const [newAreaName, setNewAreaName] = useState("");
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showMaterialPicker, setShowMaterialPicker] = useState(false);
-  const [selectedMaterials, setSelectedMaterials] = useState(() => {
+  const [beadStickMode, setBeadStickMode] = useState({}); // { [product]: true } for stick-count mode
+  const [showDefaultMatPicker, setShowDefaultMatPicker] = useState(false);
+  // Global default materials for new jobs (stored in localStorage, not per-job)
+  const [defaultMaterials, setDefaultMaterials] = useState(() => {
     try {
-      const saved = localStorage.getItem("takeoff_selectedMaterials");
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
+      const saved = localStorage.getItem("takeoff_defaultMaterials");
+      return saved ? JSON.parse(saved) : DEFAULT_MATERIALS_FALLBACK;
+    } catch { return DEFAULT_MATERIALS_FALLBACK; }
   });
+  const saveDefaultMaterials = (mats) => {
+    setDefaultMaterials(mats);
+    try { localStorage.setItem("takeoff_defaultMaterials", JSON.stringify(mats)); } catch {}
+  };
+
+  // selectedMaterials is now per-job (stored in job.selectedMaterials)
+  const selectedMaterials = (() => {
+    const job = jobs.find(j => j.id === currentJobId);
+    return (job?.selectedMaterials && job.selectedMaterials.length > 0)
+      ? job.selectedMaterials
+      : [MATERIALS[2], MATERIALS[0], MATERIALS[7], MATERIALS[1]];
+  })();
+  const setSelectedMaterials = (updater) => {
+    setJobs(prev => prev.map(j => {
+      if (j.id !== currentJobId) return j;
+      const current = (j.selectedMaterials && j.selectedMaterials.length > 0)
+        ? j.selectedMaterials
+        : [MATERIALS[2], MATERIALS[0], MATERIALS[7], MATERIALS[1]];
+      const next = typeof updater === "function" ? updater(current) : updater;
+      return { ...j, selectedMaterials: next };
+    }));
+  };
   const [editingQtyProduct, setEditingQtyProduct] = useState(null);
   const [editingQtyValue, setEditingQtyValue] = useState("");
   const [newCustomMaterial, setNewCustomMaterial] = useState("");
@@ -862,9 +934,7 @@ export default function TakeoffApp() {
     } catch {}
   }, [currentJobId]);
 
-  useEffect(() => {
-    try { localStorage.setItem("takeoff_selectedMaterials", JSON.stringify(selectedMaterials)); } catch {}
-  }, [selectedMaterials]);
+  // selectedMaterials is now saved per-job inside the jobs array (no separate localStorage key needed)
 
   useEffect(() => {
     const update = () => setIsLandscape(window.innerWidth > window.innerHeight);
@@ -1057,6 +1127,98 @@ export default function TakeoffApp() {
     );
   };
 
+  // ── BEAD STICK-COUNT MODE ───────────────────────────────────────────────
+  const updateBeadStickCount = (product, length, delta) => {
+    setJobs(prev => prev.map(job => {
+      if (job.id !== currentJobId) return job;
+      return {
+        ...job,
+        accessories: job.accessories.map(a => {
+          if (a.product !== product) return a;
+          const lines = a.lines ? [...a.lines] : [];
+          const idx = lines.findIndex(l => l.length === length);
+          if (idx >= 0) {
+            const newQty = Math.max(0, (lines[idx].qty || 0) + delta);
+            if (newQty === 0) {
+              return { ...a, lines: lines.filter((_, i) => i !== idx) };
+            }
+            const updated = [...lines];
+            updated[idx] = { ...updated[idx], qty: newQty };
+            return { ...a, lines: updated };
+          } else if (delta > 0) {
+            return { ...a, lines: [...lines, { qty: delta, length }] };
+          }
+          return a;
+        }),
+      };
+    }));
+  };
+
+  const setBeadStickCount = (product, length, value) => {
+    setJobs(prev => prev.map(job => {
+      if (job.id !== currentJobId) return job;
+      return {
+        ...job,
+        accessories: job.accessories.map(a => {
+          if (a.product !== product) return a;
+          const lines = a.lines ? [...a.lines] : [];
+          const idx = lines.findIndex(l => l.length === length);
+          const qty = Math.max(0, value);
+          if (idx >= 0) {
+            if (qty === 0) return { ...a, lines: lines.filter((_, i) => i !== idx) };
+            const updated = [...lines];
+            updated[idx] = { ...updated[idx], qty };
+            return { ...a, lines: updated };
+          } else if (qty > 0) {
+            return { ...a, lines: [...lines, { qty, length }] };
+          }
+          return a;
+        }),
+      };
+    }));
+  };
+
+  // ── MULTI-LINE (qty + area) for Metal & Track / Fasteners ──────────────
+  const addMultiLine = (product) => {
+    setJobs(prev => prev.map(job =>
+      job.id !== currentJobId ? job : {
+        ...job,
+        accessories: job.accessories.map(a => {
+          if (a.product !== product) return a;
+          const lines = a.lines ? [...a.lines] : (a.qty > 0 ? [{ qty: a.qty, area: a.placement || "General" }] : []);
+          return { ...a, lines: [...lines, { qty: 0, area: "General" }], qty: 0 };
+        }),
+      }
+    ));
+  };
+
+  const updateMultiLine = (product, lineIdx, field, value) => {
+    setJobs(prev => prev.map(job =>
+      job.id !== currentJobId ? job : {
+        ...job,
+        accessories: job.accessories.map(a => {
+          if (a.product !== product) return a;
+          const lines = a.lines ? [...a.lines] : [];
+          lines[lineIdx] = { ...lines[lineIdx], [field]: value };
+          return { ...a, lines };
+        }),
+      }
+    ));
+  };
+
+  const removeMultiLine = (product, lineIdx) => {
+    setJobs(prev => prev.map(job =>
+      job.id !== currentJobId ? job : {
+        ...job,
+        accessories: job.accessories.map(a => {
+          if (a.product !== product) return a;
+          const lines = (a.lines || []).filter((_, i) => i !== lineIdx);
+          return { ...a, lines };
+        }),
+      }
+    ));
+  };
+
   const [showJobNumberWarning, setShowJobNumberWarning] = useState(false);
 
   const handleBudgetUnlock = () => {
@@ -1079,7 +1241,7 @@ export default function TakeoffApp() {
       setShowJobNumberWarning(true);
       return;
     }
-    const job = initJob(newJobName.trim(), newJobNumber.trim(), newJobType);
+    const job = initJob(newJobName.trim(), newJobNumber.trim(), newJobType, defaultMaterials);
     setJobs((prev) => [job, ...prev]);
     setNewJobName("");
     setNewJobNumber("");
@@ -1087,7 +1249,6 @@ export default function TakeoffApp() {
     setShowNewJobModal(false);
     setShowJobNumberWarning(false);
     setCurrentJobId(job.id);
-    setSelectedMaterials([MATERIALS[2], MATERIALS[0], MATERIALS[7], MATERIALS[1]]);
     setScreen("job");
   };
 
@@ -1293,6 +1454,12 @@ export default function TakeoffApp() {
               accTotal += cost;
               csv += `"${a.product} (${l.qty}pc × ${l.length}ft)",${ft},"${a.placement || ""}",${(priceData?.price ?? 0).toFixed(4)},${cost.toFixed(2)}\n`;
             });
+          } else if (isMultiLineProduct(a.product) && a.lines?.length > 0) {
+            a.lines.filter(l => l.qty > 0).forEach(l => {
+              const cost = (l.qty || 0) * (priceData?.price ?? 0);
+              accTotal += cost;
+              csv += `"${a.product}",${l.qty},"${l.area || "General"}",${(priceData?.price ?? 0).toFixed(4)},${cost.toFixed(2)}\n`;
+            });
           } else {
             const cost = (a.qty || 0) * (priceData?.price ?? 0);
             accTotal += cost;
@@ -1323,6 +1490,10 @@ export default function TakeoffApp() {
             a.lines.filter(l => l.qty > 0).forEach(l => {
               csv += `"${a.product} (${l.qty}pc × ${l.length}ft)",${(l.qty||0)*(l.length||0)},"${a.placement || ""}"\n`;
             });
+          } else if (isMultiLineProduct(a.product) && a.lines?.length > 0) {
+            a.lines.filter(l => l.qty > 0).forEach(l => {
+              csv += `"${a.product}",${l.qty},"${l.area || "General"}"\n`;
+            });
           } else {
             csv += `"${a.product}",${a.qty},"${a.placement || ""}"\n`;
           }
@@ -1342,13 +1513,19 @@ export default function TakeoffApp() {
       const xBoardingFt = xTotalSqFt;
       const xTileBackerSqFt = currentJob.areas.reduce((sum, area) => {
         let tbSqft = 0;
-        ["12TB (1/2\" TILEBACKER)", "58TB (5/8\" TILEBACKER)"].forEach(mat => {
+        ["12TB (1/2\" TILEBACKER)", "58TB (5/8\" TILEBACKER)",
+         "12DU (1/2\" DUROCK)", "58DU (5/8\" DUROCK)",
+         "12SR (1/2\" SECUREROCK)", "58SR (5/8\" SECUREROCK)",
+         "01GM (SHAFT BOARD)"].forEach(mat => {
           LENGTHS.forEach(len => { tbSqft += (area?.data?.[mat]?.[len] || 0) * sheetWidth(mat) * lenFeet(len); });
         });
         return sum + tbSqft;
       }, 0);
       const xTapingFt = Math.max(0, xBoardingFt - xTileBackerSqFt - (xbp.taping?.noTapeFootage || 0));
-      const xResBarQty = (currentJob.accessories || []).find(a => a.product.startsWith("MS18RES"))?.qty || 0;
+      const xResBarAcc = (currentJob.accessories || []).find(a => a.product.startsWith("MS18RES"));
+      const xResBarQty = xResBarAcc?.lines?.length > 0
+        ? xResBarAcc.lines.reduce((s, l) => s + (Number(l.qty)||0), 0)
+        : (xResBarAcc?.qty || 0);
       const xResBarAutoQty = xbp.resBar?.manualQty ? xbp.resBar.qty : xResBarQty * 12;
       const xBoardingDriveQty = Math.ceil(xBoardingFt / 3000);
       const xTapingDriveQty = Math.ceil(xTapingFt / 3000);
@@ -1359,7 +1536,7 @@ export default function TakeoffApp() {
         { label: "Boarding",        qty: xBoardingFt,       rate: xbp.boarding?.rate ?? 0.35,  manualTotal: xbp.boarding?.manualTotal },
         { label: "Scrap",           qty: xBoardingFt,       rate: xbp.scrap?.rate ?? 0.06,     manualTotal: xbp.scrap?.manualTotal },
         { label: "Beading",         qty: xbp.beading?.manualQty ? xbp.beading.qty : Math.round(xTapingFt * 0.115), rate: xbp.beading?.rate ?? 0.80, manualTotal: xbp.beading?.manualTotal },
-        { label: "Taping" + (xTileBackerSqFt > 0 ? ` (${Math.round(xTileBackerSqFt)} ft² tile backer deducted)` : ""), qty: xTapingFt, rate: xbp.taping?.rate ?? 0.40, manualTotal: xbp.taping?.manualTotal },
+        { label: "Taping" + (xTileBackerSqFt > 0 ? ` (${Math.round(xTileBackerSqFt)} ft² tile backer / non-tapeable deducted)` : ""), qty: xTapingFt, rate: xbp.taping?.rate ?? 0.40, manualTotal: xbp.taping?.manualTotal },
         { label: "Boarding Drive",  qty: xBoardingDriveQty, rate: xbp.boardingDrive?.rate ?? 65, manualTotal: xbp.boardingDrive?.manualTotal },
         { label: "Taping Drive",    qty: xTapingDriveQty,   rate: xbp.tapingDrive?.rate ?? 50,  manualTotal: xbp.tapingDrive?.manualTotal },
         { label: "Management",      qty: xbp.management?.trips ?? 5, rate: xbp.management?.costPerTrip ?? 150, manualTotal: xbp.management?.manualTotal },
@@ -1398,6 +1575,8 @@ export default function TakeoffApp() {
           if (!priceData) return;
           if (isBeadProduct(a.product) && a.lines?.length > 0) {
             a.lines.forEach(l => { total += (Number(l.qty)||0) * (Number(l.length)||0) * (priceData.price||0); });
+          } else if (isMultiLineProduct(a.product) && a.lines?.length > 0) {
+            a.lines.forEach(l => { total += (Number(l.qty)||0) * (priceData.price||0); });
           } else {
             total += (a.qty||0) * (priceData.price||0);
           }
@@ -1734,8 +1913,6 @@ export default function TakeoffApp() {
                     style={{ ...styles.jobCard, flex: 1 }}
                     onClick={() => {
                       setCurrentJobId(job.id);
-                      if (selectedMaterials.length === 0)
-                        setSelectedMaterials([MATERIALS[2], MATERIALS[0], MATERIALS[7], MATERIALS[1]]);
                       setScreen("job");
                     }}
                   >
@@ -1779,7 +1956,58 @@ export default function TakeoffApp() {
             ))}
           </div>
         </div>
+        {/* Default board types button */}
+        <button
+          onClick={() => setShowDefaultMatPicker(true)}
+          style={{ position: "fixed", bottom: 88, right: 16, zIndex: 50, background: "#1e293b", border: "1px solid #334155", borderRadius: 20, color: "#94a3b8", fontSize: 12, fontWeight: 700, padding: "7px 14px", cursor: "pointer", boxShadow: "0 2px 8px #0006" }}
+        >⭐ Default Board Types ({defaultMaterials.length})</button>
         <button style={styles.fab} onClick={() => setShowNewJobModal(true)}>＋ New Job</button>
+
+        {/* Default Materials Picker Modal */}
+        {showDefaultMatPicker && (
+          <Modal title="Default Board Types" onClose={() => setShowDefaultMatPicker(false)} tall>
+            <p style={{ color: "#aaa", fontSize: 12, marginBottom: 8 }}>These board types will be pre-selected when you create a <strong style={{color:"#60a5fa"}}>new job</strong>. Existing jobs are not affected.</p>
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              {defaultMaterials.map((m, i) => (
+                <div
+                  key={m}
+                  draggable
+                  onDragStart={() => setDragIndex(i)}
+                  onDragOver={(e) => { e.preventDefault(); setDragOverIndex(i); }}
+                  onDrop={() => {
+                    if (dragIndex === null || dragIndex === i) return;
+                    const next = [...defaultMaterials];
+                    const [moved] = next.splice(dragIndex, 1);
+                    next.splice(i, 0, moved);
+                    saveDefaultMaterials(next);
+                    setDragIndex(null); setDragOverIndex(null);
+                  }}
+                  onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
+                  style={{ ...styles.matToggle, background: "#2563eb22", borderColor: dragOverIndex === i ? "#60a5fa" : "#2563eb", display: "flex", alignItems: "center", cursor: "grab", opacity: dragIndex === i ? 0.4 : 1 }}
+                >
+                  <span style={{ color: "#475569", fontSize: 16, marginRight: 8 }}>☰</span>
+                  <span style={{ color: "#60a5fa" }}>✓</span>
+                  <span style={{ color: "#e2e8f0", fontSize: 13, marginLeft: 8, flex: 1 }}>{m}</span>
+                  <button
+                    style={{ background: "none", border: "none", color: "#475569", fontSize: 18, cursor: "pointer", padding: "0 4px" }}
+                    onClick={(e) => { e.stopPropagation(); saveDefaultMaterials(defaultMaterials.filter(x => x !== m)); }}
+                  >×</button>
+                </div>
+              ))}
+              {MATERIALS.filter(m => !defaultMaterials.includes(m)).map((m) => (
+                <button
+                  key={m}
+                  style={{ ...styles.matToggle, background: "#1a1a2e", borderColor: "#333" }}
+                  onClick={() => saveDefaultMaterials([...defaultMaterials, m])}
+                >
+                  <span style={{ color: "#888" }}>○</span>
+                  <span style={{ color: "#aaa", fontSize: 13, marginLeft: 8 }}>{m}</span>
+                </button>
+              ))}
+            </div>
+            <button style={styles.btnPrimary} onClick={() => setShowDefaultMatPicker(false)}>Done</button>
+          </Modal>
+        )}
 
         {showNewJobModal && (
           <Modal title="New Job" onClose={() => { setShowNewJobModal(false); setNewJobName(""); setNewJobNumber(""); setNewJobType("single"); setShowJobNumberWarning(false); }}>
@@ -1998,7 +2226,7 @@ export default function TakeoffApp() {
             <div>
               <div style={{ fontWeight: 700, fontSize: 15 }}>📦 Accessories & Supplies</div>
               <div style={{ color: "#64748b", fontSize: 12, marginTop: 2 }}>
-                {currentJob?.accessories?.filter(a => a.qty > 0).length || 0} items selected
+                {currentJob?.accessories?.filter(a => a.qty > 0 || (a.lines && a.lines.some(l => l.qty > 0))).length || 0} items selected
               </div>
             </div>
             <span style={{ fontSize: 20 }}>›</span>
@@ -2080,7 +2308,11 @@ export default function TakeoffApp() {
 
         {showMaterialPicker && (
           <Modal title="Select & Order Materials" onClose={() => setShowMaterialPicker(false)} tall>
-            <p style={{ color: "#aaa", fontSize: 12, marginBottom: 8 }}>Tap to toggle · Drag ☰ to reorder active board types.</p>
+            <p style={{ color: "#aaa", fontSize: 12, marginBottom: 4 }}>Tap to toggle · Drag ☰ to reorder. Changes apply to <strong style={{color:"#60a5fa"}}>this job only</strong>.</p>
+            <button
+              onClick={() => { saveDefaultMaterials([...selectedMaterials]); }}
+              style={{ fontSize: 11, padding: "4px 12px", marginBottom: 8, borderRadius: 6, border: "1px solid #334155", background: "#1e293b", color: "#94a3b8", cursor: "pointer", width: "100%" }}
+            >⭐ Set current selection as default for new jobs</button>
             <div style={{ overflowY: "auto", flex: 1 }}>
               {/* Active materials — draggable */}
               {selectedMaterials.map((m, i) => (
@@ -2106,7 +2338,28 @@ export default function TakeoffApp() {
                   <span style={{ color: "#e2e8f0", fontSize: 13, marginLeft: 8, flex: 1 }}>{m}</span>
                   <button
                     style={{ background: "none", border: "none", color: "#475569", fontSize: 18, cursor: "pointer", padding: "0 4px" }}
-                    onClick={(e) => { e.stopPropagation(); setSelectedMaterials(prev => prev.filter(x => x !== m)); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Check if this material has any quantities in the current job
+                      const affectedAreas = (currentJob?.areas || []).filter(area =>
+                        LENGTHS.some(len => (area.data[m]?.[len] || 0) > 0)
+                      );
+                      const totalSheets = affectedAreas.reduce((s, area) =>
+                        s + LENGTHS.reduce((ss, len) => ss + (area.data[m]?.[len] || 0), 0), 0
+                      );
+                      if (totalSheets > 0) {
+                        openBudgetConfirm(
+                          `"${m}" has ${totalSheets} sheet${totalSheets !== 1 ? "s" : ""} entered across ${affectedAreas.length} area${affectedAreas.length !== 1 ? "s" : ""}.
+
+Removing it from the active list hides those quantities but does NOT delete them — they will still count in totals and exports.
+
+Remove it anyway?`,
+                          () => setSelectedMaterials(prev => prev.filter(x => x !== m))
+                        );
+                      } else {
+                        setSelectedMaterials(prev => prev.filter(x => x !== m));
+                      }
+                    }}
                   >×</button>
                 </div>
               ))}
@@ -2250,7 +2503,10 @@ export default function TakeoffApp() {
     // Tile backer (12TB, 58TB) sqft — excluded from taping since tile areas don't get taped
     const tileBackerSqFt = (currentJob?.areas || []).reduce((sum, area) => {
       let tbSqft = 0;
-      ["12TB (1/2\" TILEBACKER)", "58TB (5/8\" TILEBACKER)"].forEach(mat => {
+      ["12TB (1/2\" TILEBACKER)", "58TB (5/8\" TILEBACKER)",
+       "12DU (1/2\" DUROCK)", "58DU (5/8\" DUROCK)",
+       "12SR (1/2\" SECUREROCK)", "58SR (5/8\" SECUREROCK)",
+       "01GM (SHAFT BOARD)"].forEach(mat => {
         LENGTHS.forEach(len => {
           const qty = area?.data?.[mat]?.[len] || 0;
           tbSqft += qty * sheetWidth(mat) * lenFeet(len);
@@ -2261,7 +2517,10 @@ export default function TakeoffApp() {
     const tapingFootage = Math.max(0, boardingFootage - tileBackerSqFt - (bp.taping.noTapeFootage || 0));
 
     // Res bar auto-calc: MS18RES qty × 12' (unless manually overridden)
-    const resBarAccessoryQty = (currentJob?.accessories || []).find(a => a.product.startsWith("MS18RES"))?.qty || 0;
+    const resBarAcc = (currentJob?.accessories || []).find(a => a.product.startsWith("MS18RES"));
+    const resBarAccessoryQty = resBarAcc?.lines?.length > 0
+      ? resBarAcc.lines.reduce((s, l) => s + (Number(l.qty)||0), 0)
+      : (resBarAcc?.qty || 0);
     const resBarAutoQty = bp.resBar.manualQty ? bp.resBar.qty : resBarAccessoryQty * 12;
 
     // Drive quantities rounded up to nearest 1
@@ -2274,7 +2533,10 @@ export default function TakeoffApp() {
         const newBP = JSON.parse(JSON.stringify(j.budgetPricing || initBudgetPricing()));
         const keys = path.split(".");
         let obj = newBP;
-        for (let i = 0; i < keys.length - 1; i++) obj = obj[keys[i]];
+        for (let i = 0; i < keys.length - 1; i++) {
+          if (obj[keys[i]] === undefined || obj[keys[i]] === null) obj[keys[i]] = {};
+          obj = obj[keys[i]];
+        }
         obj[keys[keys.length - 1]] = value;
         return { ...j, budgetPricing: newBP };
       }));
@@ -2392,6 +2654,8 @@ export default function TakeoffApp() {
           // lines: qty × length × $/ft
           const lines = entry.lines || [];
           lines.forEach(l => { total += (Number(l.qty) || 0) * (Number(l.length) || 0) * (priceData.price || 0); });
+        } else if (isMultiLineProduct(entry.product) && entry.lines?.length > 0) {
+          entry.lines.forEach(l => { total += (Number(l.qty) || 0) * (priceData.price || 0); });
         } else {
           total += (entry.qty || 0) * (priceData.price || 0);
         }
@@ -2414,6 +2678,12 @@ export default function TakeoffApp() {
           lines.forEach((l, i) => {
             const ft = (Number(l.qty) || 0) * (Number(l.length) || 0);
             if (ft > 0) rows.push({ label: `${entry.product} (${l.qty}pc × ${l.length}ft)`, qty: ft, unit: "ft", price: priceData.price, total: ft * priceData.price });
+          });
+        } else if (isMultiLineProduct(entry.product) && entry.lines?.length > 0) {
+          entry.lines.forEach(l => {
+            if ((Number(l.qty) || 0) > 0) {
+              rows.push({ label: `${entry.product} [${l.area || "General"}]`, qty: l.qty, unit: priceData.unit || "ea", price: priceData.price, total: l.qty * priceData.price });
+            }
           });
         } else if (entry.qty > 0) {
           rows.push({ label: entry.product, qty: entry.qty, unit: priceData.unit || "ea", price: priceData.price, total: entry.qty * priceData.price });
@@ -2472,7 +2742,7 @@ export default function TakeoffApp() {
       Object.values(rows).forEach(r => {
         if (r.total > 0 || r.qty > 0) {
           let label = r.label;
-          if (r.label === "Taping" && tileBackerSqFt > 0) label += ` (${Math.round(tileBackerSqFt)} ft² tile backer deducted)`;
+          if (r.label === "Taping" && tileBackerSqFt > 0) label += ` (${Math.round(tileBackerSqFt)} ft² tile backer / non-tapeable deducted)`;
           if (r.label === "Res Bar / Angle" && bp.resBar?.section && bp.resBar.section !== "General") label += ` [${bp.resBar.section}]`;
           row(label, r.qty, `$${r.rate.toFixed(2)}`, r.total.toFixed(2));
         }
@@ -2893,7 +3163,7 @@ export default function TakeoffApp() {
         <div style={{ ...styles.header, padding: isLandscape ? "8px 16px" : "14px 16px" }}>
           <button style={styles.back} onClick={() => setScreen("job")}>‹</button>
           <span style={styles.headerTitle}>Accessories & Supplies</span>
-          <span style={{ color: "#60a5fa", fontSize: 12 }}>{accessories.filter(a => a.qty > 0).length} items</span>
+          <span style={{ color: "#60a5fa", fontSize: 12 }}>{accessories.filter(a => a.qty > 0 || (a.lines && a.lines.some(l => l.qty > 0))).length} items</span>
         </div>
 
         <div key="acc-scroll" ref={accScrollRef} style={{ flex: 1, overflowY: "auto", display: isLandscape ? "grid" : "block", gridTemplateColumns: isLandscape ? "1fr 1fr" : undefined, alignItems: "start" }}>
@@ -2917,24 +3187,18 @@ export default function TakeoffApp() {
               {category === "Fasteners & Adhesives" && collapsedSections[category] && (() => {
                 const product = "DS114C (1 1/4\" COARSE DW SCREWS)";
                 const entry = accessories.find((a) => a.product === product) || { qty: 0, placement: "General" };
-                const suggestedQty = getSuggestedQty(product);
-                const isAutoSuggested = suggestedQty !== null && entry.qty === 0;
+                const pinnedTotalQty = entry.lines?.length > 0
+                  ? entry.lines.reduce((s, l) => s + (Number(l.qty)||0), 0)
+                  : (entry.qty || 0);
                 return (
-                  <div style={{ ...styles.accRow, borderLeft: isAutoSuggested ? "3px solid #f59e0b" : "3px solid transparent", background: "#0a1628", borderBottom: "1px solid #0f172a" }}>
-                    <div style={styles.accProductName}>
-                      {product}
-                      {isAutoSuggested && <div style={{ fontSize: 10, color: "#f59e0b", marginTop: 2 }}>⚠️ Suggested: {suggestedQty} — tap to confirm</div>}
-                    </div>
+                  <div style={{ ...styles.accRow, borderLeft: pinnedTotalQty > 0 ? "3px solid #60a5fa44" : "3px solid transparent", background: "#0a1628", borderBottom: "1px solid #0f172a" }}>
+                    <div style={styles.accProductName}>{product}</div>
                     <div style={styles.accControls}>
                       <div style={styles.accQtyRow}>
-                        <button
-                          style={{ ...styles.accQtyBtn, minWidth: 52, borderColor: isAutoSuggested ? "#f59e0b44" : undefined }}
-                          onPointerDown={() => startLongPress(product)}
-                          onPointerUp={() => { cancelLongPress(); updateAccessoryQty(product, isAutoSuggested ? suggestedQty : Math.max(0, (entry.qty || 0) - 1)); }}
-                          onPointerLeave={cancelLongPress}
-                          onContextMenu={e => e.preventDefault()}
-                        >{entry.qty > 0 ? entry.qty : isAutoSuggested ? suggestedQty : "·"}</button>
-                        <button style={styles.accQtyBtn} onPointerDown={() => startLongPress(product)} onPointerUp={() => { cancelLongPress(); updateAccessoryQty(product, (entry.qty || 0) + 1); }} onPointerLeave={cancelLongPress} onContextMenu={e => e.preventDefault()}>＋</button>
+                        <span style={{ fontSize: 13, color: pinnedTotalQty > 0 ? "#60a5fa" : "#475569", fontWeight: 700, minWidth: 52, textAlign: "center" }}>
+                          {pinnedTotalQty > 0 ? pinnedTotalQty : "·"}
+                        </span>
+                        <span style={{ fontSize: 11, color: "#475569" }}>↓ expand</span>
                       </div>
                     </div>
                   </div>
@@ -2948,54 +3212,171 @@ export default function TakeoffApp() {
                 if (isBead) {
                   const lines = entry.lines && entry.lines.length > 0 ? entry.lines : [];
                   const totalFt = lines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.length) || 0), 0);
+                  const isStickMode = !!beadStickMode[product];
+                  const availLengths = getBeadLengths(product);
+
                   return (
                     <div key={product} style={{ borderBottom: "1px solid #1e293b", padding: "10px 14px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                      {/* Header row */}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: "#e2e8f0", flex: 1 }}>{product}</div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           {totalFt > 0 && <span style={{ fontSize: 11, color: "#60a5fa", fontWeight: 700 }}>{totalFt}′ total</span>}
-                          <select
-                            style={{ ...styles.accSelect, color: entry.placement === "All Areas" ? "#f59e0b" : "#94a3b8" }}
-                            value={entry.placement || "General"}
-                            onChange={(e) => updateAccessory(product, "placement", e.target.value)}
-                          >
-                            <option value="General">General</option>
-                            {areaNames.map((n) => <option key={n} value={n}>{n}</option>)}
-                            <option value="All Areas">⚠️ All Areas</option>
-                          </select>
+                          {/* Mode toggle */}
+                          <button
+                            onClick={() => setBeadStickMode(prev => ({ ...prev, [product]: !prev[product] }))}
+                            style={{
+                              fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 5, cursor: "pointer", border: "none",
+                              background: isStickMode ? "#1d4ed8" : "#1e293b",
+                              color: isStickMode ? "#93c5fd" : "#475569",
+                            }}
+                          >📏 FIELD</button>
+                          {!isStickMode && (
+                            <select
+                              style={{ ...styles.accSelect, color: entry.placement === "All Areas" ? "#f59e0b" : "#94a3b8" }}
+                              value={entry.placement || "General"}
+                              onChange={(e) => updateAccessory(product, "placement", e.target.value)}
+                            >
+                              <option value="General">General</option>
+                              {areaNames.map((n) => <option key={n} value={n}>{n}</option>)}
+                              <option value="All Areas">⚠️ All Areas</option>
+                            </select>
+                          )}
                         </div>
                       </div>
-                      {/* Line items */}
+
+                      {isStickMode ? (
+                        /* ── STICK-COUNT GRID ── */
+                        <div>
+                          {/* Column headers */}
+                          <div style={{ display: "flex", gap: 6, marginBottom: 6, paddingLeft: 2 }}>
+                            {availLengths.map(len => (
+                              <div key={len} style={{ flex: 1, textAlign: "center", fontSize: 11, fontWeight: 700, color: "#64748b" }}>{len}′</div>
+                            ))}
+                          </div>
+                          {/* Count cells */}
+                          <div style={{ display: "flex", gap: 6 }}>
+                            {availLengths.map(len => {
+                              const existingLine = lines.find(l => l.length === len);
+                              const qty = existingLine?.qty || 0;
+                              const longPressKey = `bead-${product}-${len}`;
+                              return (
+                                <div key={len} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                                  <button
+                                    style={{
+                                      width: "100%", aspectRatio: "1", borderRadius: 8, border: "1px solid",
+                                      borderColor: qty > 0 ? "#1d4ed8" : "#1e293b",
+                                      background: qty > 0 ? "#0f2044" : "#0f172a",
+                                      color: qty > 0 ? "#60a5fa" : "#334155",
+                                      fontSize: qty > 99 ? 13 : qty > 9 ? 16 : 20,
+                                      fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                                      minHeight: 52,
+                                    }}
+                                    onPointerDown={() => {
+                                      longPressTimer.current = setTimeout(() => {
+                                        if (qty > 0) setBeadStickCount(product, len, 0);
+                                      }, 600);
+                                    }}
+                                    onPointerUp={() => {
+                                      clearTimeout(longPressTimer.current);
+                                      updateBeadStickCount(product, len, 1);
+                                    }}
+                                    onPointerLeave={() => clearTimeout(longPressTimer.current)}
+                                    onContextMenu={e => { e.preventDefault(); if (qty > 0) updateBeadStickCount(product, len, -1); }}
+                                  >
+                                    {qty > 0 ? qty : "·"}
+                                  </button>
+                                  {qty > 0 && (
+                                    <span style={{ fontSize: 10, color: "#334155" }}>{qty * len}′</span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {/* Total ft summary */}
+                          {totalFt > 0 && (
+                            <div style={{ marginTop: 8, fontSize: 11, color: "#475569", textAlign: "right" }}>
+                              {lines.filter(l => l.qty > 0).map(l => `${l.qty}×${l.length}′`).join(" + ")} = <span style={{ color: "#60a5fa", fontWeight: 700 }}>{totalFt}′</span>
+                            </div>
+                          )}
+                          <div style={{ marginTop: 6, fontSize: 10, color: "#334155", textAlign: "center" }}>tap to add · hold to clear · right-click to subtract</div>
+                        </div>
+                      ) : (
+                        /* ── MANUAL LINE-ITEM MODE ── */
+                        <div>
+                          {lines.map((line, idx) => (
+                            <div key={idx} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+                              <input
+                                type="number"
+                                min="0"
+                                placeholder="qty"
+                                value={line.qty === 0 ? "" : line.qty}
+                                onChange={e => updateBeadLine(product, idx, "qty", parseInt(e.target.value) || 0)}
+                                style={{ width: 52, background: "#1e293b", border: "1px solid #334155", borderRadius: 6, color: "#e2e8f0", fontSize: 13, padding: "6px 8px", textAlign: "center", outline: "none" }}
+                              />
+                              <span style={{ fontSize: 12, color: "#475569" }}>pcs ×</span>
+                              <input
+                                type="number"
+                                min="1"
+                                placeholder="ft"
+                                value={line.length === 0 ? "" : line.length}
+                                onChange={e => updateBeadLine(product, idx, "length", parseInt(e.target.value) || 0)}
+                                style={{ width: 52, background: "#1e293b", border: "1px solid #334155", borderRadius: 6, color: "#e2e8f0", fontSize: 13, padding: "6px 8px", textAlign: "center", outline: "none" }}
+                              />
+                              <span style={{ fontSize: 12, color: "#475569" }}>ft</span>
+                              <span style={{ fontSize: 11, color: "#334155", marginLeft: 2 }}>
+                                {line.qty > 0 && line.length > 0 ? `= ${line.qty * line.length}′` : ""}
+                              </span>
+                              <button onClick={() => removeBeadLine(product, idx)} style={{ marginLeft: "auto", background: "none", border: "none", color: "#475569", fontSize: 16, cursor: "pointer", padding: "0 4px" }}>✕</button>
+                            </div>
+                          ))}
+                          <button
+                            onClick={() => addBeadLine(product)}
+                            style={{ marginTop: 4, background: "none", border: "1px dashed #334155", borderRadius: 6, color: "#60a5fa", fontSize: 12, padding: "4px 12px", cursor: "pointer", width: "100%" }}
+                          >＋ Add line</button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                // ── MULTI-LINE QTY+AREA UI (Metal & Track, Fasteners) ────
+                if (isMultiLineProduct(product)) {
+                  const lines = (entry.lines && entry.lines.length > 0)
+                    ? entry.lines
+                    : (entry.qty > 0 ? [{ qty: entry.qty, area: entry.placement || "General" }] : []);
+                  const totalQty = lines.reduce((s, l) => s + (Number(l.qty) || 0), 0);
+                  return (
+                    <div key={product} style={{ borderBottom: "1px solid #1e293b", padding: "10px 14px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "#e2e8f0" }}>{product}</div>
+                        {totalQty > 0 && <span style={{ fontSize: 11, color: "#60a5fa", fontWeight: 700 }}>{totalQty} total</span>}
+                      </div>
                       {lines.map((line, idx) => (
-                        <div key={idx} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+                        <div key={idx} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                           <input
                             type="number"
                             min="0"
                             placeholder="qty"
                             value={line.qty === 0 ? "" : line.qty}
-                            onChange={e => updateBeadLine(product, idx, "qty", parseInt(e.target.value) || 0)}
-                            style={{ width: 52, background: "#1e293b", border: "1px solid #334155", borderRadius: 6, color: "#e2e8f0", fontSize: 13, padding: "6px 8px", textAlign: "center", outline: "none" }}
+                            onChange={e => updateMultiLine(product, idx, "qty", parseInt(e.target.value) || 0)}
+                            style={{ width: 60, background: "#1e293b", border: "1px solid #334155", borderRadius: 6, color: "#e2e8f0", fontSize: 13, padding: "6px 8px", textAlign: "center", outline: "none" }}
                           />
-                          <span style={{ fontSize: 12, color: "#475569" }}>pcs ×</span>
-                          <input
-                            type="number"
-                            min="1"
-                            placeholder="ft"
-                            value={line.length === 0 ? "" : line.length}
-                            onChange={e => updateBeadLine(product, idx, "length", parseInt(e.target.value) || 0)}
-                            style={{ width: 52, background: "#1e293b", border: "1px solid #334155", borderRadius: 6, color: "#e2e8f0", fontSize: 13, padding: "6px 8px", textAlign: "center", outline: "none" }}
-                          />
-                          <span style={{ fontSize: 12, color: "#475569" }}>ft</span>
-                          <span style={{ fontSize: 11, color: "#334155", marginLeft: 2 }}>
-                            {line.qty > 0 && line.length > 0 ? `= ${line.qty * line.length}′` : ""}
-                          </span>
-                          <button onClick={() => removeBeadLine(product, idx)} style={{ marginLeft: "auto", background: "none", border: "none", color: "#475569", fontSize: 16, cursor: "pointer", padding: "0 4px" }}>✕</button>
+                          <select
+                            value={line.area || "General"}
+                            onChange={e => updateMultiLine(product, idx, "area", e.target.value)}
+                            style={{ ...styles.accSelect, flex: 1, color: line.area === "All Areas" ? "#f59e0b" : "#94a3b8" }}
+                          >
+                            <option value="General">General</option>
+                            {areaNames.map(n => <option key={n} value={n}>{n}</option>)}
+                            <option value="All Areas">⚠️ All Areas</option>
+                          </select>
+                          <button onClick={() => removeMultiLine(product, idx)} style={{ background: "none", border: "none", color: "#475569", fontSize: 16, cursor: "pointer", padding: "0 4px" }}>✕</button>
                         </div>
                       ))}
-                      {/* Add line button */}
                       <button
-                        onClick={() => addBeadLine(product)}
-                        style={{ marginTop: 4, background: "none", border: "1px dashed #334155", borderRadius: 6, color: "#60a5fa", fontSize: 12, padding: "4px 12px", cursor: "pointer", width: "100%" }}
+                        onClick={() => addMultiLine(product)}
+                        style={{ marginTop: 2, background: "none", border: "1px dashed #334155", borderRadius: 6, color: "#60a5fa", fontSize: 12, padding: "4px 12px", cursor: "pointer", width: "100%" }}
                       >＋ Add line</button>
                     </div>
                   );
