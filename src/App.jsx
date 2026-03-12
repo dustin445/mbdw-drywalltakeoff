@@ -1277,6 +1277,8 @@ export default function TakeoffApp() {
   };
 
   const [deleteJobId, setDeleteJobId] = useState(null);
+  const [deleteAreaId, setDeleteAreaId] = useState(null);
+  const [showConvertConfirm, setShowConvertConfirm] = useState(false);
   const deleteJob = (jobId) => {
     setJobs((prev) => prev.filter((j) => j.id !== jobId));
     if (currentJobId === jobId) setCurrentJobId(null);
@@ -2115,6 +2117,51 @@ export default function TakeoffApp() {
             </div>
           </Modal>
         )}
+
+        {showConvertConfirm && (
+          <Modal title="Convert to Budget Job?" onClose={() => setShowConvertConfirm(false)}>
+            <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 8 }}>
+              This will convert <strong style={{ color: "#f1f5f9" }}>{currentJob?.name}</strong> to a Budget Order job and add the Budget & Pricing screen.
+            </p>
+            <p style={{ color: "#64748b", fontSize: 13, marginBottom: 20 }}>
+              All existing takeoff data and accessories will be kept. Job # stays the same. This cannot be undone.
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                style={{ ...styles.btnPrimary, background: "#065f46", flex: 1 }}
+                onClick={() => {
+                  setJobs(prev => prev.map(j =>
+                    j.id !== currentJobId ? j : {
+                      ...j,
+                      type: "budget",
+                      budgetPricing: initBudgetPricing(),
+                    }
+                  ));
+                  setShowConvertConfirm(false);
+                }}
+              >Convert</button>
+              <button style={{ ...styles.smallBtn, flex: 1, padding: "12px" }} onClick={() => setShowConvertConfirm(false)}>Cancel</button>
+            </div>
+          </Modal>
+        )}
+
+        {deleteAreaId && (() => {
+          const area = currentJob?.areas.find(a => a.id === deleteAreaId);
+          return (
+            <Modal title="Delete Area?" onClose={() => setDeleteAreaId(null)}>
+              <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 16 }}>
+                Are you sure you want to delete <strong style={{ color: "#f1f5f9" }}>{area?.name}</strong>? All quantities entered for this area will be lost.
+              </p>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  style={{ ...styles.btnPrimary, background: "#dc2626", flex: 1 }}
+                  onClick={() => { deleteArea(deleteAreaId); setDeleteAreaId(null); }}
+                >Delete</button>
+                <button style={{ ...styles.smallBtn, flex: 1, padding: "12px" }} onClick={() => setDeleteAreaId(null)}>Cancel</button>
+              </div>
+            </Modal>
+          );
+        })()}
       </div>
     );
   }
@@ -2179,7 +2226,7 @@ export default function TakeoffApp() {
                     </button>
                     <button style={styles.renameAreaBtn} onClick={() => { setRenamingAreaId(area.id); setRenameAreaValue(area.name); }}>✏️</button>
                     <button style={styles.renameAreaBtn} onClick={() => duplicateArea(area.id)}>⧉</button>
-                    <button style={styles.deleteAreaBtn} onClick={() => deleteArea(area.id)}>🗑</button>
+                    <button style={styles.deleteAreaBtn} onClick={() => setDeleteAreaId(area.id)}>🗑</button>
                   </>
                 )}
               </div>
@@ -2237,6 +2284,19 @@ export default function TakeoffApp() {
                 <div style={{ color: "#64748b", fontSize: 12, marginTop: 2 }}>Material Pricing, Labor rates, overhead & profit</div>
               </div>
               <span style={{ fontSize: 20 }}>›</span>
+            </button>
+          )}
+
+          {isBudgetUnlocked && currentJob?.type !== "budget" && (
+            <button
+              style={{ ...styles.accessoriesNav, borderColor: "#34d39944", marginTop: 8, background: "#06402011" }}
+              onClick={() => setShowConvertConfirm(true)}
+            >
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: "#34d399" }}>💰 Convert to Budget Job</div>
+                <div style={{ color: "#64748b", fontSize: 12, marginTop: 2 }}>Adds budget & pricing screen to this job</div>
+              </div>
+              <span style={{ fontSize: 20, color: "#34d399" }}>›</span>
             </button>
           )}
 
@@ -2987,7 +3047,7 @@ Remove it anyway?`,
               <div key={row.id} style={{ borderBottom: "1px solid #1e293b", background: "#0d1a2a" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 72px 72px 80px", alignItems: "center", padding: "0 12px 0 8px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
-                    <button style={{ background: "none", border: "none", color: "#ef4444", fontSize: 18, cursor: "pointer", padding: "4px", touchAction: "manipulation", flexShrink: 0, lineHeight: 1 }} onClick={() => deleteCustomLabour(row.id)}>✕</button>
+                    <button style={{ background: "none", border: "none", color: "#ef4444", fontSize: 18, cursor: "pointer", padding: "4px", touchAction: "manipulation", flexShrink: 0, lineHeight: 1 }} onClick={() => openBudgetConfirm(`Delete "${row.label}"? This cannot be undone.`, () => deleteCustomLabour(row.id))}>✕</button>
                     <input style={{ background: "transparent", border: "none", borderBottom: "1px solid #334155", color: "#e2e8f0", fontSize: 13, fontWeight: 600, padding: "2px 0", outline: "none", minWidth: 0, flex: 1 }} value={row.label} onChange={(e) => updateCustomLabour(row.id, "label", e.target.value)} />
                   </div>
                   <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#f59e0b", textAlign: "right", padding: "12px 0", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent", fontFamily: "inherit" }} onClick={() => openBudgetEdit(`Qty: ${row.label}`, row.qty, v => { updateCustomLabour(row.id, "qty", v); updateCustomLabour(row.id, "manualTotal", false); })}>{row.qty}</button>
@@ -3053,7 +3113,7 @@ Remove it anyway?`,
                 <div key={item.id} style={{ borderBottom: "1px solid #1e293b", background: "#0a1628" }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 90px", alignItems: "center", padding: "0 12px 0 8px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
-                      <button style={{ background: "none", border: "none", color: "#ef4444", fontSize: 18, cursor: "pointer", padding: "4px", touchAction: "manipulation", flexShrink: 0, lineHeight: 1 }} onClick={() => deleteOptionalItem(item.id)}>✕</button>
+                      <button style={{ background: "none", border: "none", color: "#ef4444", fontSize: 18, cursor: "pointer", padding: "4px", touchAction: "manipulation", flexShrink: 0, lineHeight: 1 }} onClick={() => openBudgetConfirm(`Delete "${item.label}"? This cannot be undone.`, () => deleteOptionalItem(item.id))}>✕</button>
                       <input
                         style={{ background: "transparent", border: "none", borderBottom: "1px solid #334155", color: "#e2e8f0", fontSize: 13, fontWeight: 600, padding: "2px 0", outline: "none", minWidth: 0, flex: 1 }}
                         value={item.label}
