@@ -3586,7 +3586,7 @@ Remove it anyway?`,
                 );
               })}
             </div>
-          })}
+          )}
 
           {/* Add custom accessory */}
           <div style={{ padding: "14px 16px", borderTop: "2px solid #1e293b" }}>
