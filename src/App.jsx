@@ -714,7 +714,7 @@ function PricingSection({ title, count, children }) {
 // ─── BUDGET ROW COMPONENT (module-level) ─────────────────────────────────────
 function BPRow({ rowKey, row, qtyEditable = false, qtyPath = null, showNoTape = false,
                  budgetPricing, bp, updateBP, openBudgetEdit, noTapeFootage, inputStyle,
-                 tileBackerSqFt = 0, showResBarSection = false }) {
+                 tileBackerSqFt = 0}) {
   const isManual = (budgetPricing?.[rowKey]?.manualTotal !== false && budgetPricing?.[rowKey]?.manualTotal !== undefined) ||
     (bp[rowKey]?.manualTotal !== false && bp[rowKey]?.manualTotal !== undefined);
   const manualQty = budgetPricing?.[rowKey]?.manualQty;
@@ -775,21 +775,7 @@ function BPRow({ rowKey, row, qtyEditable = false, qtyPath = null, showNoTape = 
           </div>
         </div>
       )}
-      {showResBarSection && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 12px 8px", borderTop: "1px solid #0f172a" }}>
-          <span style={{ fontSize: 11, color: "#475569", flex: 1 }}>Install section:</span>
-          <select
-            style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 6, color: "#e2e8f0", fontSize: 12, padding: "4px 8px", outline: "none" }}
-            value={bp.resBar?.section || "General"}
-            onChange={(e) => updateBP("resBar.section", e.target.value)}
-          >
-            <option value="General">General</option>
-            <option value="Direct House">Direct House</option>
-            <option value="Resilient Only">Resilient Only</option>
-            <option value="Mixed">Mixed</option>
-          </select>
-        </div>
-      )}
+
     </div>
   );
 }
@@ -1532,7 +1518,7 @@ export default function TakeoffApp() {
       const xWarrantyQty = xbp.warranty?.manualQty ? xbp.warranty.qty : Math.round(xBoardingFt / 1000);
 
       const xRows = [
-        { label: "Res Bar / Angle" + (xbp.resBar?.section && xbp.resBar.section !== "General" ? ` [${xbp.resBar.section}]` : ""), qty: xResBarAutoQty, rate: xbp.resBar?.rate ?? 0.34, manualTotal: xbp.resBar?.manualTotal },
+        { label: "Res Bar", qty: xResBarAutoQty, rate: xbp.resBar?.rate ?? 0.34, manualTotal: xbp.resBar?.manualTotal },
         { label: "Boarding",        qty: xBoardingFt,       rate: xbp.boarding?.rate ?? 0.35,  manualTotal: xbp.boarding?.manualTotal },
         { label: "Scrap",           qty: xBoardingFt,       rate: xbp.scrap?.rate ?? 0.06,     manualTotal: xbp.scrap?.manualTotal },
         { label: "Beading",         qty: xbp.beading?.manualQty ? xbp.beading.qty : Math.round(xTapingFt * 0.115), rate: xbp.beading?.rate ?? 0.80, manualTotal: xbp.beading?.manualTotal },
@@ -2598,7 +2584,7 @@ Remove it anyway?`,
 
     // Computed totals (unless manually overridden)
     const rows = {
-      resBar:       { label: "Res Bar / Angle",  qty: resBarAutoQty,        rate: bp.resBar.rate,           total: bp.resBar.manualTotal !== false ? bp.resBar.manualTotal : resBarAutoQty * bp.resBar.rate },
+      resBar:       { label: "Res Bar",  qty: resBarAutoQty,        rate: bp.resBar.rate,           total: bp.resBar.manualTotal !== false ? bp.resBar.manualTotal : resBarAutoQty * bp.resBar.rate },
       boarding:     { label: "Boarding",          qty: boardingFootage,      rate: bp.boarding.rate,         total: bp.boarding.manualTotal !== false ? bp.boarding.manualTotal : boardingFootage * bp.boarding.rate },
       scrap:        { label: "Scrap",             qty: boardingFootage,      rate: bp.scrap.rate,            total: bp.scrap.manualTotal !== false ? bp.scrap.manualTotal : boardingFootage * bp.scrap.rate },
       beading:      { label: "Beading",           qty: bp.beading.manualQty ? bp.beading.qty : Math.round(tapingFootage * 0.115),       rate: bp.beading.rate,          total: bp.beading.manualTotal !== false ? bp.beading.manualTotal : (bp.beading.manualQty ? bp.beading.qty : Math.round(tapingFootage * 0.115)) * bp.beading.rate },
@@ -2743,7 +2729,7 @@ Remove it anyway?`,
         if (r.total > 0 || r.qty > 0) {
           let label = r.label;
           if (r.label === "Taping" && tileBackerSqFt > 0) label += ` (${Math.round(tileBackerSqFt)} ft² tile backer / non-tapeable deducted)`;
-          if (r.label === "Res Bar / Angle" && bp.resBar?.section && bp.resBar.section !== "General") label += ` [${bp.resBar.section}]`;
+          // res bar section label removed
           row(label, r.qty, `$${r.rate.toFixed(2)}`, r.total.toFixed(2));
         }
       });
@@ -2926,16 +2912,23 @@ Remove it anyway?`,
                         {cartageIsManual && <span style={{ fontSize: 10, color: "#f59e0b", marginLeft: 4 }}>⚠</span>}
                         {cartageIsMinimum && !cartageIsManual && <span style={{ fontSize: 10, color: "#94a3b8", marginLeft: 4 }}>min</span>}
                       </div>
-                      <div style={{ fontSize: 13, color: "#64748b", textAlign: "right", padding: "10px 0" }}>{boardingFootage > 0 ? `${boardingFootage} ft²` : "—"}</div>
+                      <div style={{ fontSize: 13, color: "#64748b", textAlign: "right", padding: "10px 0" }}>{boardingFootage > 0 ? `${boardingFootage}` : "—"}</div>
                       <div style={{ fontSize: 13, color: "#64748b", textAlign: "right", padding: "10px 0" }}>
                         {cartageIsManual ? (
                           <button onClick={() => openBudgetConfirm("Reset cartage back to auto-calculation? ($0.065/ft² · min $250)", () => updateBP("cartage.manualTotal", undefined))}
-                            style={{ background: "none", border: "1px solid #334155", borderRadius: 4, color: "#64748b", fontSize: 10, padding: "2px 6px", cursor: "pointer", touchAction: "manipulation" }}>↺</button>
+                            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#64748b", padding: "0 2px" }}>↺</button>
                         ) : "$0.065"}
                       </div>
-                      <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, color: "#f59e0b", textAlign: "right", padding: "12px 0", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent", fontFamily: "inherit" }}
-                        onClick={() => openBudgetEdit("Override Cartage", cartage.toFixed(2), v => updateBP("cartage.manualTotal", parseFloat(v)))}
-                      >${cartage.toFixed(0)}</button>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
+                        {cartageIsManual && (
+                          <button title="Reset to auto-calculated"
+                            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#64748b", padding: "0 2px", lineHeight: 1 }}
+                            onClick={() => updateBP("cartage.manualTotal", undefined)}>↺</button>
+                        )}
+                        <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, color: "#f59e0b", textAlign: "right", padding: "12px 0", touchAction: "manipulation", WebkitTapHighlightColor: "transparent", fontFamily: "inherit" }}
+                          onClick={() => openBudgetEdit("Override Cartage", cartage.toFixed(2), v => updateBP("cartage.manualTotal", parseFloat(v)))}
+                        >${cartage.toFixed(0)}{cartageIsManual && <span style={{ fontSize: 9, marginLeft: 2 }}>⚠</span>}</button>
+                      </div>
                     </div>
 
                     {/* Sub-line: PST */}
@@ -2945,7 +2938,7 @@ Remove it anyway?`,
                       </div>
                       <div style={{ fontSize: 13, color: "#64748b", textAlign: "right", padding: "10px 0" }}>${(materialCost + accessoryCost).toFixed(0)}</div>
                       <div style={{ fontSize: 13, color: "#64748b", textAlign: "right", padding: "10px 0" }}>7%</div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#64748b", textAlign: "right", padding: "10px 0" }}>${pstAmt.toFixed(0)}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b", textAlign: "right", padding: "10px 0" }}>${pstAmt.toFixed(0)}</div>
                     </div>
 
                   </div>
@@ -2968,7 +2961,7 @@ Remove it anyway?`,
             </div>
           </div>
 
-          <BPRow rowKey="resBar" row={rows.resBar} qtyEditable qtyPath="qty" budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} showResBarSection />
+          <BPRow rowKey="resBar" row={rows.resBar} qtyEditable qtyPath="qty" budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
           <BPRow rowKey="boarding" row={rows.boarding} budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
           <BPRow rowKey="scrap" row={rows.scrap} budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
           <BPRow rowKey="beading" row={rows.beading} qtyEditable qtyPath="qty" budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
@@ -3346,12 +3339,31 @@ Remove it anyway?`,
                     ? entry.lines
                     : (entry.qty > 0 ? [{ qty: entry.qty, area: entry.placement || "General" }] : []);
                   const totalQty = lines.reduce((s, l) => s + (Number(l.qty) || 0), 0);
+                  const suggestedQty = getSuggestedQty(product);
+                  const isAutoSuggested = suggestedQty !== null && totalQty === 0;
                   return (
-                    <div key={product} style={{ borderBottom: "1px solid #1e293b", padding: "10px 14px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <div key={product} style={{ borderBottom: "1px solid #1e293b", padding: "10px 14px", borderLeft: isAutoSuggested ? "3px solid #f59e0b" : "3px solid transparent" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: isAutoSuggested ? 4 : 8 }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: "#e2e8f0" }}>{product}</div>
                         {totalQty > 0 && <span style={{ fontSize: 11, color: "#60a5fa", fontWeight: 700 }}>{totalQty} total</span>}
                       </div>
+                      {isAutoSuggested && (
+                        <button
+                          onClick={() => {
+                            setJobs(prev => prev.map(job => {
+                              if (job.id !== currentJobId) return job;
+                              return {
+                                ...job,
+                                accessories: job.accessories.map(a => {
+                                  if (a.product !== product) return a;
+                                  return { ...a, lines: [{ qty: suggestedQty, area: "General" }], qty: 0 };
+                                }),
+                              };
+                            }));
+                          }}
+                          style={{ width: "100%", marginBottom: 8, background: "#451a0322", border: "1px solid #f59e0b55", borderRadius: 6, color: "#f59e0b", fontSize: 11, fontWeight: 700, padding: "5px 10px", cursor: "pointer", textAlign: "left" }}
+                        >⚠️ Suggested: {suggestedQty} box{suggestedQty !== 1 ? "es" : ""} — tap to add</button>
+                      )}
                       {lines.map((line, idx) => (
                         <div key={idx} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                           <input
