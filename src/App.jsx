@@ -2253,7 +2253,10 @@ export default function TakeoffApp() {
                     </button>
                     <button style={styles.renameAreaBtn} onClick={() => { setRenamingAreaId(area.id); setRenameAreaValue(area.name); }}>✏️</button>
                     <button style={styles.renameAreaBtn} onClick={() => duplicateArea(area.id)}>⧉</button>
-                    <button style={styles.deleteAreaBtn} onClick={() => { window.history.pushState({ modal: "deleteArea" }, "", ""); setDeleteAreaId(area.id); }}>🗑</button>
+                    {areaTotal(area) > 0
+                      ? <button style={{ ...styles.deleteAreaBtn, color: "#334155", cursor: "not-allowed" }} title="Cannot delete — area has quantities taken off">🔒</button>
+                      : <button style={styles.deleteAreaBtn} onClick={() => { window.history.pushState({ modal: "deleteArea" }, "", ""); setDeleteAreaId(area.id); }}>🗑</button>
+                    }
                   </>
                 )}
               </div>
