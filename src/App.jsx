@@ -3534,7 +3534,9 @@ Remove it anyway?`,
                 );
               })}
             </div>
-          ))}
+            );
+          })}
+          {/* end category */}
 
           {/* Custom accessories added by user */}
           {accessories.filter(a => !ALL_ACCESSORIES.includes(a.product)).length > 0 && (
@@ -3584,7 +3586,6 @@ Remove it anyway?`,
                 );
               })}
             </div>
-            );
           })}
 
           {/* Add custom accessory */}
