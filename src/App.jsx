@@ -836,6 +836,8 @@ export default function TakeoffApp() {
   const [editJobNumber, setEditJobNumber] = useState("");
   const [dragIndex, setDragIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [beadDragIndex, setBeadDragIndex] = useState(null);
+  const [beadDragOver, setBeadDragOver] = useState(null);
   const [showNewJobModal, setShowNewJobModal] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState(
     Object.keys(ACCESSORIES).reduce((acc, cat) => ({ ...acc, [cat]: cat !== "Mud & Tape" }), {})
@@ -846,7 +848,17 @@ export default function TakeoffApp() {
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showMaterialPicker, setShowMaterialPicker] = useState(false);
   const [beadStickMode, setBeadStickMode] = useState({}); // { [product]: true } for stick-count mode
+
+  const updateBeadOrder = (newOrder) => {
+    setJobs(prev => prev.map(j =>
+      j.id !== currentJobId ? j : { ...j, beadOrder: newOrder }
+    ));
+  };
   const [showDefaultMatPicker, setShowDefaultMatPicker] = useState(false);
+  const [beadStickPopup, setBeadStickPopup] = useState(null); // { x, y, product, len }
+  const beadDeleteTimer = useRef(null);
+  const beadDeleteInterval = useRef(null);
+  const beadLongPressFired = useRef(false);
   // Global default materials for new jobs (stored in localStorage, not per-job)
   const [defaultMaterials, setDefaultMaterials] = useState(() => {
     try {
@@ -2907,10 +2919,10 @@ Remove it anyway?`,
 
                     {/* Sub-line: Cartage */}
                     <div style={{ borderBottom: "1px solid #1e293b", display: "grid", gridTemplateColumns: COL, padding: "0 12px", alignItems: "center" }}>
-                      <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600, padding: "10px 0" }}>
+                      <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600, padding: "10px 0", display: "flex", alignItems: "center", gap: 4 }}>
                         Cartage
-                        {cartageIsManual && <span style={{ fontSize: 10, color: "#f59e0b", marginLeft: 4 }}>⚠</span>}
-                        {cartageIsMinimum && !cartageIsManual && <span style={{ fontSize: 10, color: "#94a3b8", marginLeft: 4 }}>min</span>}
+                        {cartageIsManual && <span style={{ fontSize: 10, color: "#f59e0b" }}>⚠</span>}
+                        {cartageIsMinimum && !cartageIsManual && <span style={{ fontSize: 10, color: "#94a3b8" }}>min</span>}
                       </div>
                       <div style={{ fontSize: 13, color: "#64748b", textAlign: "right", padding: "10px 0" }}>{boardingFootage > 0 ? `${boardingFootage}` : "—"}</div>
                       <div style={{ fontSize: 13, color: "#64748b", textAlign: "right", padding: "10px 0" }}>
@@ -2933,7 +2945,7 @@ Remove it anyway?`,
 
                     {/* Sub-line: PST */}
                     <div style={{ display: "grid", gridTemplateColumns: COL, padding: "0 12px", alignItems: "center" }}>
-                      <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600, padding: "10px 0" }}>
+                      <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600, padding: "10px 0", display: "flex", alignItems: "center", gap: 4 }}>
                         PST <span style={{ fontSize: 10, color: "#64748b", fontWeight: 400 }}>boards + acc</span>
                       </div>
                       <div style={{ fontSize: 13, color: "#64748b", textAlign: "right", padding: "10px 0" }}>${(materialCost + accessoryCost).toFixed(0)}</div>
@@ -3167,7 +3179,11 @@ Remove it anyway?`,
               ⚠️ One or more items are set to <strong>All Areas</strong> — these will be listed under every area in your export.
             </div>
           )}
-          {Object.entries(ACCESSORIES).map(([category, products]) => (
+          {Object.entries(ACCESSORIES).map(([category, defaultProducts]) => {
+            const products = category === "Beads & Trim"
+              ? (currentJob?.beadOrder?.length ? currentJob.beadOrder : defaultProducts)
+              : defaultProducts;
+            return (
             <div key={category}>
               <div
                 style={{ ...styles.accCategoryHeader, display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", userSelect: "none" }}
@@ -3208,11 +3224,29 @@ Remove it anyway?`,
                   const isStickMode = !!beadStickMode[product];
                   const availLengths = getBeadLengths(product);
 
+                  const beadIdx = products.indexOf(product);
                   return (
-                    <div key={product} style={{ borderBottom: "1px solid #1e293b", padding: "10px 14px" }}>
+                    <div key={product}
+                      draggable
+                      onDragStart={() => setBeadDragIndex(beadIdx)}
+                      onDragOver={(e) => { e.preventDefault(); setBeadDragOver(beadIdx); }}
+                      onDrop={() => {
+                        if (beadDragIndex === null || beadDragIndex === beadIdx) return;
+                        const reordered = [...products];
+                        const [moved] = reordered.splice(beadDragIndex, 1);
+                        reordered.splice(beadIdx, 0, moved);
+                        updateBeadOrder(reordered);
+                        setBeadDragIndex(null); setBeadDragOver(null);
+                      }}
+                      onDragEnd={() => { setBeadDragIndex(null); setBeadDragOver(null); }}
+                      style={{ borderBottom: "1px solid #1e293b", padding: "10px 14px", opacity: beadDragIndex === beadIdx ? 0.4 : 1, background: beadDragOver === beadIdx && beadDragIndex !== beadIdx ? "#1e3a5f" : "transparent" }}
+                    >
                       {/* Header row */}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "#e2e8f0", flex: 1 }}>{product}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
+                          <span style={{ fontSize: 16, color: "#334155", cursor: "grab", userSelect: "none", flexShrink: 0 }}>≡</span>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: "#e2e8f0" }}>{product}</div>
+                        </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           {totalFt > 0 && <span style={{ fontSize: 11, color: "#60a5fa", fontWeight: 700 }}>{totalFt}′ total</span>}
                           {/* Mode toggle */}
@@ -3252,7 +3286,6 @@ Remove it anyway?`,
                             {availLengths.map(len => {
                               const existingLine = lines.find(l => l.length === len);
                               const qty = existingLine?.qty || 0;
-                              const longPressKey = `bead-${product}-${len}`;
                               return (
                                 <div key={len} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
                                   <button
@@ -3265,16 +3298,41 @@ Remove it anyway?`,
                                       fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
                                       minHeight: 52,
                                     }}
-                                    onPointerDown={() => {
-                                      longPressTimer.current = setTimeout(() => {
-                                        if (qty > 0) setBeadStickCount(product, len, 0);
-                                      }, 600);
+                                    onPointerDown={(e) => {
+                                      beadLongPressFired.current = false;
+                                      clearTimeout(beadDeleteTimer.current);
+                                      clearInterval(beadDeleteInterval.current);
+                                      if (qty > 0) {
+                                        beadDeleteTimer.current = setTimeout(() => {
+                                          beadLongPressFired.current = true;
+                                          setBeadStickPopup({ x: e.clientX, y: e.clientY, product, len });
+                                          beadDeleteTimer.current = setTimeout(() => {
+                                            updateBeadStickCount(product, len, -1);
+                                            beadDeleteInterval.current = setInterval(() => {
+                                              updateBeadStickCount(product, len, -1);
+                                            }, 400);
+                                          }, 600);
+                                        }, 600);
+                                      }
                                     }}
                                     onPointerUp={() => {
-                                      clearTimeout(longPressTimer.current);
-                                      updateBeadStickCount(product, len, 1);
+                                      clearTimeout(beadDeleteTimer.current);
+                                      clearInterval(beadDeleteInterval.current);
+                                      setBeadStickPopup(null);
+                                      if (!beadLongPressFired.current) {
+                                        updateBeadStickCount(product, len, 1);
+                                      }
                                     }}
-                                    onPointerLeave={() => clearTimeout(longPressTimer.current)}
+                                    onPointerLeave={() => {
+                                      clearTimeout(beadDeleteTimer.current);
+                                      clearInterval(beadDeleteInterval.current);
+                                      setBeadStickPopup(null);
+                                    }}
+                                    onPointerCancel={() => {
+                                      clearTimeout(beadDeleteTimer.current);
+                                      clearInterval(beadDeleteInterval.current);
+                                      setBeadStickPopup(null);
+                                    }}
                                     onContextMenu={e => { e.preventDefault(); if (qty > 0) updateBeadStickCount(product, len, -1); }}
                                   >
                                     {qty > 0 ? qty : "·"}
@@ -3292,7 +3350,7 @@ Remove it anyway?`,
                               {lines.filter(l => l.qty > 0).map(l => `${l.qty}×${l.length}′`).join(" + ")} = <span style={{ color: "#60a5fa", fontWeight: 700 }}>{totalFt}′</span>
                             </div>
                           )}
-                          <div style={{ marginTop: 6, fontSize: 10, color: "#334155", textAlign: "center" }}>tap to add · hold to clear · right-click to subtract</div>
+                          <div style={{ marginTop: 6, fontSize: 10, color: "#334155", textAlign: "center" }}>tap to add · hold to delete</div>
                         </div>
                       ) : (
                         /* ── MANUAL LINE-ITEM MODE ── */
@@ -3526,7 +3584,8 @@ Remove it anyway?`,
                 );
               })}
             </div>
-          )}
+            );
+          })}
 
           {/* Add custom accessory */}
           <div style={{ padding: "14px 16px", borderTop: "2px solid #1e293b" }}>
@@ -3545,6 +3604,24 @@ Remove it anyway?`,
 
           <div style={{ height: 32 }} />
         </div>
+
+        {/* Bead stick-count delete popup */}
+        {beadStickPopup && (() => {
+          const popProduct = beadStickPopup.product;
+          const popLen = beadStickPopup.len;
+          const popAcc = (currentJob?.accessories || []).find(a => a.product === popProduct);
+          const liveQty = popAcc?.lines?.find(l => l.length === popLen)?.qty || 0;
+          const popX = Math.min(Math.max(beadStickPopup.x - 65, 10), window.innerWidth - 150);
+          const popY = Math.max(beadStickPopup.y - 180, 10);
+          return (
+            <div style={{ position: "fixed", left: popX, top: popY, zIndex: 999, background: "#0f172a", border: "2px solid #ef4444", borderRadius: 14, padding: "12px 20px", textAlign: "center", pointerEvents: "none", boxShadow: "0 4px 24px #000a" }}>
+              <div style={{ fontSize: 11, color: "#ef4444", fontWeight: 800, letterSpacing: 1, marginBottom: 4 }}>REMOVING</div>
+              <div style={{ fontSize: 38, fontWeight: 900, color: liveQty > 0 ? "#f87171" : "#475569", lineHeight: 1 }}>{liveQty}</div>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{popLen}′ sticks</div>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>release to stop</div>
+            </div>
+          );
+        })()}
       </div>
     );
   }
