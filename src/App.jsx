@@ -803,16 +803,25 @@ export default function TakeoffApp() {
     window.history.replaceState({ screen: "home" }, "", "");
 
     const handlePop = (e) => {
-      const prev = e.state?.screen;
-      if (!prev) { setScreen("home"); return; }
-      // Back always goes to the logical parent screen
+      const state = e.state;
+      // If a modal is open, close it instead of navigating
+      if (state?.modal) {
+        // modal was open — just close it, state already popped
+        setDeleteAreaId(null);
+        setDeleteJobId(null);
+        setShowConvertConfirm(false);
+        setShowNewAreaModal(false);
+        return;
+      }
+      if (!state?.screen) { setScreen("home"); return; }
+      // Back goes to logical parent screen
       setScreen(s => {
         if (s === "area" || s === "accessories" || s === "budget") return "job";
         if (s === "job" || s === "pricing") return "home";
         return "home";
       });
       // Re-push so the next back gesture still works
-      window.history.pushState({ screen: prev }, "", "");
+      window.history.pushState({ screen: state.screen }, "", "");
     };
 
     window.addEventListener("popstate", handlePop);
@@ -1976,7 +1985,7 @@ export default function TakeoffApp() {
                 {editingJobId !== job.id && (
                   <button
                     style={{ ...styles.deleteAreaBtn, color: "#ef4444" }}
-                    onClick={() => setDeleteJobId(job.id)}
+                    onClick={() => { window.history.pushState({ modal: "deleteJob" }, "", ""); setDeleteJobId(job.id); }}
                   >🗑</button>
                 )}
               </div>
@@ -2129,66 +2138,6 @@ export default function TakeoffApp() {
             <button style={styles.btnPrimary} onClick={handleBudgetUnlock}>Unlock</button>
           </Modal>
         )}
-
-        {deleteJobId && (
-          <Modal title="Delete Job?" onClose={() => setDeleteJobId(null)}>
-            <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 16 }}>
-              Are you sure you want to delete <strong style={{ color: "#f1f5f9" }}>{jobs.find(j => j.id === deleteJobId)?.name}</strong>? This cannot be undone.
-            </p>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                style={{ ...styles.btnPrimary, background: "#dc2626", flex: 1 }}
-                onClick={() => deleteJob(deleteJobId)}
-              >Delete</button>
-              <button style={{ ...styles.smallBtn, flex: 1, padding: "12px" }} onClick={() => setDeleteJobId(null)}>Cancel</button>
-            </div>
-          </Modal>
-        )}
-
-        {showConvertConfirm && (
-          <Modal title="Convert to Budget Job?" onClose={() => setShowConvertConfirm(false)}>
-            <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 8 }}>
-              This will convert <strong style={{ color: "#f1f5f9" }}>{currentJob?.name}</strong> to a Budget Order job and add the Budget & Pricing screen.
-            </p>
-            <p style={{ color: "#64748b", fontSize: 13, marginBottom: 20 }}>
-              All existing takeoff data and accessories will be kept. Job # stays the same. This cannot be undone.
-            </p>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                style={{ ...styles.btnPrimary, background: "#065f46", flex: 1 }}
-                onClick={() => {
-                  setJobs(prev => prev.map(j =>
-                    j.id !== currentJobId ? j : {
-                      ...j,
-                      type: "budget",
-                      budgetPricing: initBudgetPricing(),
-                    }
-                  ));
-                  setShowConvertConfirm(false);
-                }}
-              >Convert</button>
-              <button style={{ ...styles.smallBtn, flex: 1, padding: "12px" }} onClick={() => setShowConvertConfirm(false)}>Cancel</button>
-            </div>
-          </Modal>
-        )}
-
-        {deleteAreaId && (() => {
-          const area = currentJob?.areas.find(a => a.id === deleteAreaId);
-          return (
-            <Modal title="Delete Area?" onClose={() => setDeleteAreaId(null)}>
-              <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 16 }}>
-                Are you sure you want to delete <strong style={{ color: "#f1f5f9" }}>{area?.name}</strong>? All quantities entered for this area will be lost.
-              </p>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  style={{ ...styles.btnPrimary, background: "#dc2626", flex: 1 }}
-                  onClick={() => { deleteArea(deleteAreaId); setDeleteAreaId(null); }}
-                >Delete</button>
-                <button style={{ ...styles.smallBtn, flex: 1, padding: "12px" }} onClick={() => setDeleteAreaId(null)}>Cancel</button>
-              </div>
-            </Modal>
-          );
-        })()}
       </div>
     );
   }
@@ -2222,7 +2171,7 @@ export default function TakeoffApp() {
           <div>
           <div style={styles.sectionRow}>
             <span style={styles.sectionLabel}>AREAS</span>
-            <button style={styles.smallBtn} onClick={() => setShowNewAreaModal(true)}>+ Add Area</button>
+            <button style={styles.smallBtn} onClick={() => { window.history.pushState({ modal: 'newArea' }, '', ''); setShowNewAreaModal(true); }}>+ Add Area</button>
           </div>
           <div style={styles.list}>
             {currentJob?.areas.map((area) => (
@@ -2253,7 +2202,7 @@ export default function TakeoffApp() {
                     </button>
                     <button style={styles.renameAreaBtn} onClick={() => { setRenamingAreaId(area.id); setRenameAreaValue(area.name); }}>✏️</button>
                     <button style={styles.renameAreaBtn} onClick={() => duplicateArea(area.id)}>⧉</button>
-                    <button style={styles.deleteAreaBtn} onClick={() => setDeleteAreaId(area.id)}>🗑</button>
+                    <button style={styles.deleteAreaBtn} onClick={() => { window.history.pushState({ modal: "deleteArea" }, "", ""); setDeleteAreaId(area.id); }}>🗑</button>
                   </>
                 )}
               </div>
@@ -2317,7 +2266,7 @@ export default function TakeoffApp() {
           {isBudgetUnlocked && currentJob?.type !== "budget" && (
             <button
               style={{ ...styles.accessoriesNav, borderColor: "#34d39944", marginTop: 8, background: "#06402011" }}
-              onClick={() => setShowConvertConfirm(true)}
+              onClick={() => { window.history.pushState({ modal: "convert" }, "", ""); setShowConvertConfirm(true); }}
             >
               <div>
                 <div style={{ fontWeight: 700, fontSize: 15, color: "#34d399" }}>💰 Convert to Budget Job</div>
@@ -3914,6 +3863,57 @@ Remove it anyway?`,
       </div>
     );
   }
+
+  // ── GLOBAL MODALS — render on top of any screen ──────────────────────────
+  if (deleteJobId) return (
+    <Modal title="Delete Job?" onClose={() => setDeleteJobId(null)}>
+      <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 16 }}>
+        Are you sure you want to delete <strong style={{ color: "#f1f5f9" }}>{jobs.find(j => j.id === deleteJobId)?.name}</strong>? This cannot be undone.
+      </p>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button style={{ ...styles.btnPrimary, background: "#dc2626", flex: 1 }} onClick={() => deleteJob(deleteJobId)}>Delete</button>
+        <button style={{ ...styles.smallBtn, flex: 1, padding: "12px" }} onClick={() => setDeleteJobId(null)}>Cancel</button>
+      </div>
+    </Modal>
+  );
+
+  if (deleteAreaId) {
+    const area = currentJob?.areas.find(a => a.id === deleteAreaId);
+    return (
+      <Modal title="Delete Area?" onClose={() => setDeleteAreaId(null)}>
+        <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 16 }}>
+          Are you sure you want to delete <strong style={{ color: "#f1f5f9" }}>{area?.name}</strong>? All quantities entered for this area will be lost.
+        </p>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button style={{ ...styles.btnPrimary, background: "#dc2626", flex: 1 }} onClick={() => { deleteArea(deleteAreaId); setDeleteAreaId(null); }}>Delete</button>
+          <button style={{ ...styles.smallBtn, flex: 1, padding: "12px" }} onClick={() => setDeleteAreaId(null)}>Cancel</button>
+        </div>
+      </Modal>
+    );
+  }
+
+  if (showConvertConfirm) return (
+    <Modal title="Convert to Budget Job?" onClose={() => setShowConvertConfirm(false)}>
+      <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 8 }}>
+        This will convert <strong style={{ color: "#f1f5f9" }}>{currentJob?.name}</strong> to a Budget Order job and add the Budget & Pricing screen.
+      </p>
+      <p style={{ color: "#64748b", fontSize: 13, marginBottom: 20 }}>
+        All existing takeoff data and accessories will be kept. Job # stays the same. This cannot be undone.
+      </p>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          style={{ ...styles.btnPrimary, background: "#065f46", flex: 1 }}
+          onClick={() => {
+            setJobs(prev => prev.map(j =>
+              j.id !== currentJobId ? j : { ...j, type: "budget", budgetPricing: initBudgetPricing() }
+            ));
+            setShowConvertConfirm(false);
+          }}
+        >Convert</button>
+        <button style={{ ...styles.smallBtn, flex: 1, padding: "12px" }} onClick={() => setShowConvertConfirm(false)}>Cancel</button>
+      </div>
+    </Modal>
+  );
 
   return null;
 }
