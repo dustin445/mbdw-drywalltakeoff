@@ -791,6 +791,33 @@ export default function TakeoffApp() {
 
   // Load from localStorage on first render
   const [screen, setScreen] = useState("home");
+
+  // Navigate with browser history so Android back gesture works
+  const navigate = (newScreen) => {
+    window.history.pushState({ screen: newScreen }, "", "");
+    setScreen(newScreen);
+  };
+
+  useEffect(() => {
+    // Seed initial history entry so first back gesture is catchable
+    window.history.replaceState({ screen: "home" }, "", "");
+
+    const handlePop = (e) => {
+      const prev = e.state?.screen;
+      if (!prev) { setScreen("home"); return; }
+      // Back always goes to the logical parent screen
+      setScreen(s => {
+        if (s === "area" || s === "accessories" || s === "budget") return "job";
+        if (s === "job" || s === "pricing") return "home";
+        return "home";
+      });
+      // Re-push so the next back gesture still works
+      window.history.pushState({ screen: prev }, "", "");
+    };
+
+    window.addEventListener("popstate", handlePop);
+    return () => window.removeEventListener("popstate", handlePop);
+  }, []);
   const [jobs, setJobs] = useState(() => {
     try {
       const saved = localStorage.getItem("takeoff_jobs");
@@ -1247,7 +1274,7 @@ export default function TakeoffApp() {
     setShowNewJobModal(false);
     setShowJobNumberWarning(false);
     setCurrentJobId(job.id);
-    setScreen("job");
+    navigate("job");
   };
 
   const createArea = () => {
@@ -1857,7 +1884,7 @@ export default function TakeoffApp() {
             )}
             <button
               style={{ background: "none", border: "none", color: "#1e293b", fontSize: 16, cursor: "pointer", padding: "0 2px" }}
-              onClick={() => setScreen("pricing")}
+              onClick={() => navigate("pricing")}
               title="Admin Pricing"
             >⚙️</button>
           </div>
@@ -1913,7 +1940,7 @@ export default function TakeoffApp() {
                     style={{ ...styles.jobCard, flex: 1 }}
                     onClick={() => {
                       setCurrentJobId(job.id);
-                      setScreen("job");
+                      navigate("job");
                     }}
                   >
                     <div>
@@ -2172,7 +2199,7 @@ export default function TakeoffApp() {
     return (
       <div style={{ ...styles.shell, maxWidth: isLandscape ? "100%" : 520 }}>
         <div style={{ ...styles.header, padding: isLandscape ? "8px 16px" : "14px 16px" }}>
-          <button style={styles.back} onClick={() => setScreen("home")}>‹</button>
+          <button style={styles.back} onClick={() => navigate("home")}>‹</button>
           <div style={{ flex: 1 }}>
             <div style={{ ...styles.headerTitle, fontSize: isLandscape ? 14 : 16 }}>{currentJob?.name}</div>
             {currentJob?.jobNumber ? <div style={{ fontSize: 11, color: "#64748b" }}>#{currentJob.jobNumber}</div> : null}
@@ -2216,7 +2243,7 @@ export default function TakeoffApp() {
                   <>
                     <button
                       style={styles.areaCard}
-                      onClick={() => { setCurrentAreaId(area.id); cleanDisabledCells(currentJobId, area.id); setScreen("area"); }}
+                      onClick={() => { setCurrentAreaId(area.id); cleanDisabledCells(currentJobId, area.id); navigate("area"); }}
                     >
                       <div>
                         <div style={styles.areaName}>{area.name}</div>
@@ -2267,7 +2294,7 @@ export default function TakeoffApp() {
           )}
 
           {/* Accessories link */}
-          <button style={styles.accessoriesNav} onClick={() => setScreen("accessories")}>
+          <button style={styles.accessoriesNav} onClick={() => navigate("accessories")}>
             <div>
               <div style={{ fontWeight: 700, fontSize: 15 }}>📦 Accessories & Supplies</div>
               <div style={{ color: "#64748b", fontSize: 12, marginTop: 2 }}>
@@ -2278,7 +2305,7 @@ export default function TakeoffApp() {
           </button>
 
           {currentJob?.type === "budget" && (
-            <button style={{ ...styles.accessoriesNav, borderColor: "#34d399", marginTop: 8 }} onClick={() => setScreen("budget")}>
+            <button style={{ ...styles.accessoriesNav, borderColor: "#34d399", marginTop: 8 }} onClick={() => navigate("budget")}>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 15 }}>💰 Budget & Pricing</div>
                 <div style={{ color: "#64748b", fontSize: 12, marginTop: 2 }}>Material Pricing, Labor rates, overhead & profit</div>
@@ -2472,7 +2499,7 @@ Remove it anyway?`,
     return (
       <div style={{ ...styles.shell, maxWidth: "100%" }}>
         <div style={{ ...styles.header, padding: isLandscape ? "8px 16px" : "14px 16px" }}>
-          <button style={styles.back} onClick={() => setScreen("job")}>‹</button>
+          <button style={styles.back} onClick={() => navigate("job")}>‹</button>
           <span style={{ ...styles.headerTitle, fontSize: isLandscape ? 14 : 16 }}>{currentArea?.name}</span>
           <div style={{ textAlign: "right" }}>
             <div style={{ color: "#60a5fa", fontSize: isLandscape ? 11 : 13, fontWeight: 700 }}>{areaTotal(currentArea)} pcs</div>
@@ -2838,7 +2865,7 @@ Remove it anyway?`,
     return (
       <div style={{ ...styles.shell, maxWidth: isLandscape ? "100%" : 520 }}>
         <div style={{ ...styles.header, padding: isLandscape ? "8px 16px" : "14px 16px" }}>
-          <button style={styles.back} onClick={() => setScreen("job")}>‹</button>
+          <button style={styles.back} onClick={() => navigate("job")}>‹</button>
           <div style={{ flex: 1 }}>
             <div style={{ ...styles.headerTitle, fontSize: 14 }}>💰 Budget & Pricing</div>
             <div style={{ fontSize: 11, color: "#64748b" }}>{currentJob?.name}</div>
@@ -3226,7 +3253,7 @@ Remove it anyway?`,
     return (
       <div ref={shellRef} style={{ ...styles.shell, maxWidth: isLandscape ? "100%" : 520 }}>
         <div style={{ ...styles.header, padding: isLandscape ? "8px 16px" : "14px 16px" }}>
-          <button style={styles.back} onClick={() => setScreen("job")}>‹</button>
+          <button style={styles.back} onClick={() => navigate("job")}>‹</button>
           <span style={styles.headerTitle}>Accessories & Supplies</span>
           <span style={{ color: "#60a5fa", fontSize: 12 }}>{accessories.filter(a => a.qty > 0 || (a.lines && a.lines.some(l => l.qty > 0))).length} items</span>
         </div>
@@ -3722,7 +3749,7 @@ Remove it anyway?`,
               onClick={() => { if (adminPriceInput === "MBDW2025P") { setIsPricingUnlocked(true); setAdminPriceInput(""); } else setAdminPriceError(true); }}
               style={{ background: "#2563eb", border: "none", borderRadius: 8, color: "#fff", fontWeight: 700, fontSize: 14, padding: "10px 28px", cursor: "pointer", touchAction: "manipulation" }}
             >Unlock</button>
-            <button onClick={() => setScreen("home")} style={{ background: "none", border: "none", color: "#64748b", fontSize: 13, cursor: "pointer", touchAction: "manipulation" }}>← Back</button>
+            <button onClick={() => navigate("home")} style={{ background: "none", border: "none", color: "#64748b", fontSize: 13, cursor: "pointer", touchAction: "manipulation" }}>← Back</button>
           </div>
         </div>
       );
@@ -3833,7 +3860,7 @@ Remove it anyway?`,
     return (
       <div style={styles.shell}>
         <div style={styles.header}>
-          <button onClick={() => { setScreen("home"); setIsPricingUnlocked(false); }} style={styles.back}>←</button>
+          <button onClick={() => { navigate("home"); setIsPricingUnlocked(false); }} style={styles.back}>←</button>
           <div style={styles.headerTitle}>💲 Material Pricing</div>
           <button onClick={resetPrices} style={{ background: "none", border: "1px solid #ef4444", borderRadius: 6, color: "#ef4444", fontSize: 11, fontWeight: 700, padding: "4px 8px", cursor: "pointer" }}>RESET</button>
         </div>
