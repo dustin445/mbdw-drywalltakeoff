@@ -3227,8 +3227,6 @@ Remove it anyway?`,
                   const beadIdx = products.indexOf(product);
                   return (
                     <div key={product}
-                      draggable
-                      onDragStart={() => setBeadDragIndex(beadIdx)}
                       onDragOver={(e) => { e.preventDefault(); setBeadDragOver(beadIdx); }}
                       onDrop={() => {
                         if (beadDragIndex === null || beadDragIndex === beadIdx) return;
@@ -3244,7 +3242,12 @@ Remove it anyway?`,
                       {/* Header row */}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
-                          <span style={{ fontSize: 16, color: "#334155", cursor: "grab", userSelect: "none", flexShrink: 0 }}>≡</span>
+                          <span
+                            draggable
+                            onDragStart={(e) => { e.stopPropagation(); setBeadDragIndex(beadIdx); }}
+                            style={{ fontSize: 24, color: "#475569", cursor: "grab", userSelect: "none", flexShrink: 0, padding: "2px 4px", touchAction: "none" }}
+                            title="Drag to reorder"
+                          >⠿</span>
                           <div style={{ fontSize: 12, fontWeight: 700, color: "#e2e8f0" }}>{product}</div>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -3290,13 +3293,12 @@ Remove it anyway?`,
                                 <div key={len} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
                                   <button
                                     style={{
-                                      width: "100%", aspectRatio: "1", borderRadius: 8, border: "1px solid",
+                                      width: "100%", height: 44, borderRadius: 8, border: "1px solid",
                                       borderColor: qty > 0 ? "#1d4ed8" : "#1e293b",
                                       background: qty > 0 ? "#0f2044" : "#0f172a",
                                       color: qty > 0 ? "#60a5fa" : "#334155",
                                       fontSize: qty > 99 ? 13 : qty > 9 ? 16 : 20,
                                       fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                                      minHeight: 52,
                                     }}
                                     onPointerDown={(e) => {
                                       beadLongPressFired.current = false;
