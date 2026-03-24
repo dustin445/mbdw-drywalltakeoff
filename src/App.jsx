@@ -21,6 +21,8 @@ const MATERIALS = [
   "12SR (1/2\" SECUREROCK)",
   "58SR (5/8\" SECUREROCK)",
   "01GM (SHAFT BOARD)",
+  "12QR510 (1/2\" QUIETROCK 510)",
+  "58QRES (5/8\" QUIETROCK ES)",
 ];
 
 const LENGTHS = ["8'", "9'", "10'", "12'", "14'"];
@@ -47,6 +49,8 @@ const DEFAULT_SQFT_PRICES = {
   "12AR":   1.1860,
   "58AR":   1.3860,
   "01GM":   1.9161,
+  "12QR510": 2.8450,
+  "58QRES":  2.8190,
 };
 
 const loadSqftPrices = () => {
@@ -226,13 +230,14 @@ const initBudgetPricing = () => ({
   beading: { qty: 0, rate: 0.80, manualQty: false, manualTotal: false },
   taping: { noTapeFootage: 0, rate: 0.40, manualTotal: false },
   customLabour: [],
-  boardingDrive: { rate: 65, manualTotal: false },
-  tapingDrive: { rate: 50, manualTotal: false },
+  boardingDrive: { qty: 0, rate: 65, manualQty: false, manualTotal: false },
+  tapingDrive: { qty: 0, rate: 50, manualQty: false, manualTotal: false },
   management: { trips: 5, costPerTrip: 150, manualTotal: false },
   warranty: { qty: 0, rate: 50, manualQty: false, manualTotal: false },
   scaffold: { qty: 1, rate: 500, manualTotal: false },
   overhead: { pct: 10 },
   profit: { pct: 15 },
+  notes: "",
   manualOverrides: {},
 });
 
@@ -1383,7 +1388,7 @@ export default function TakeoffApp() {
       : `"Order: ${currentJob.name}"\n\n`;
 
     if (withPricing && currentJob.notes?.trim()) {
-      csv += `"SITE NOTES"\n"${currentJob.notes.replace(/"/g, '""').replace(/\n/g, " | ")}"\n\n`;
+      // site notes go to MPR export only - not here
     }
 
     if (!withPricing) {
@@ -1573,8 +1578,8 @@ export default function TakeoffApp() {
         { label: "Scrap",           qty: xBoardingFt,       rate: xbp.scrap?.rate ?? 0.06,     manualTotal: xbp.scrap?.manualTotal },
         { label: "Beading",         qty: xbp.beading?.manualQty ? xbp.beading.qty : Math.round(xTapingFt * 0.115), rate: xbp.beading?.rate ?? 0.80, manualTotal: xbp.beading?.manualTotal },
         { label: "Taping" + (xTileBackerSqFt > 0 ? ` (${Math.round(xTileBackerSqFt)} ft² tile backer / non-tapeable deducted)` : ""), qty: xTapingFt, rate: xbp.taping?.rate ?? 0.40, manualTotal: xbp.taping?.manualTotal },
-        { label: "Boarding Drive",  qty: xBoardingDriveQty, rate: xbp.boardingDrive?.rate ?? 65, manualTotal: xbp.boardingDrive?.manualTotal },
-        { label: "Taping Drive",    qty: xTapingDriveQty,   rate: xbp.tapingDrive?.rate ?? 50,  manualTotal: xbp.tapingDrive?.manualTotal },
+        { label: "Boarding Drive",  qty: xbp.boardingDrive?.manualQty ? xbp.boardingDrive.qty : xBoardingDriveQty, rate: xbp.boardingDrive?.rate ?? 65, manualTotal: xbp.boardingDrive?.manualTotal },
+        { label: "Taping Drive",    qty: xbp.tapingDrive?.manualQty ? xbp.tapingDrive.qty : xTapingDriveQty,   rate: xbp.tapingDrive?.rate ?? 50,  manualTotal: xbp.tapingDrive?.manualTotal },
         { label: "Management",      qty: xbp.management?.trips ?? 5, rate: xbp.management?.costPerTrip ?? 150, manualTotal: xbp.management?.manualTotal },
         { label: "Warranty",        qty: xWarrantyQty,      rate: xbp.warranty?.rate ?? 50,    manualTotal: xbp.warranty?.manualTotal },
         { label: "Scaffold",        qty: xbp.scaffold?.qty ?? 0, rate: xbp.scaffold?.rate ?? 500, manualTotal: xbp.scaffold?.manualTotal },
@@ -1643,6 +1648,9 @@ export default function TakeoffApp() {
       csv += `"Labour Sub Total","","","$${labourTotal.toFixed(2)}"\n`;
       csv += `"Overhead (${xbp.overhead?.pct ?? 10}% on mat+labour)","","","$${xOhAmt.toFixed(2)}"\n`;
       csv += `"Profit (${xbp.profit?.pct ?? 15}% on mat+labour)","","","$${xProfitAmt.toFixed(2)}"\n`;
+      if (xbp.notes?.trim()) {
+        csv += `\n"BUDGET NOTES"\n"${xbp.notes.trim().replace(/"/g, '""').replace(/\n/g, " | ")}"\n`;
+      }
       csv += `\n`;
     }
 
@@ -1762,6 +1770,10 @@ export default function TakeoffApp() {
     if ((mat.startsWith("12DU") || mat.startsWith("58DU")) && len !== "8'") return true;
     // Shaft board (01GM): 8' and 10' only
     if (mat.startsWith("01GM") && (len === "9'" || len === "12'" || len === "14'")) return true;
+    // QuietRock 510 (12QR510): 8' and 10' only
+    if (mat.startsWith("12QR510") && (len === "9'" || len === "12'" || len === "14'")) return true;
+    // QuietRock ES (58QRES): 8', 9', 10' only
+    if (mat.startsWith("58QRES") && (len === "12'" || len === "14'")) return true;
     return false;
   };
 
@@ -2661,7 +2673,7 @@ Remove it anyway?`,
       setJobs(prev => prev.map(j => {
         if (j.id !== currentJobId) return j;
         const newBP = JSON.parse(JSON.stringify(j.budgetPricing || initBudgetPricing()));
-        newBP.optionalItems = [...(newBP.optionalItems || []), { id: Date.now().toString(), label: "Optional Item", cost: 0 }];
+        newBP.optionalItems = [...(newBP.optionalItems || []), { id: Date.now().toString(), label: "Optional Item", cost: 0, includeOH: true, includeProfit: true }];
         return { ...j, budgetPricing: newBP };
       }));
     };
@@ -2691,8 +2703,8 @@ Remove it anyway?`,
       scrap:        { label: "Scrap",             qty: boardingFootage,      rate: bp.scrap.rate,            total: bp.scrap.manualTotal !== false ? bp.scrap.manualTotal : boardingFootage * bp.scrap.rate },
       beading:      { label: "Beading",           qty: bp.beading.manualQty ? bp.beading.qty : Math.round(tapingFootage * 0.115),       rate: bp.beading.rate,          total: bp.beading.manualTotal !== false ? bp.beading.manualTotal : (bp.beading.manualQty ? bp.beading.qty : Math.round(tapingFootage * 0.115)) * bp.beading.rate },
       taping:       { label: "Taping",            qty: tapingFootage,        rate: bp.taping.rate,           total: bp.taping.manualTotal !== false ? bp.taping.manualTotal : tapingFootage * bp.taping.rate },
-      boardingDrive:{ label: "Boarding Drive",    qty: boardingDriveQty,     rate: bp.boardingDrive.rate,    total: bp.boardingDrive.manualTotal !== false ? bp.boardingDrive.manualTotal : boardingDriveQty * bp.boardingDrive.rate },
-      tapingDrive:  { label: "Taping Drive",      qty: tapingDriveQty,       rate: bp.tapingDrive.rate,      total: bp.tapingDrive.manualTotal !== false ? bp.tapingDrive.manualTotal : tapingDriveQty * bp.tapingDrive.rate },
+      boardingDrive:{ label: "Boarding Drive",    qty: bp.boardingDrive?.manualQty ? bp.boardingDrive.qty : boardingDriveQty,     rate: bp.boardingDrive.rate,    total: bp.boardingDrive.manualTotal !== false ? bp.boardingDrive.manualTotal : (bp.boardingDrive?.manualQty ? bp.boardingDrive.qty : boardingDriveQty) * bp.boardingDrive.rate },
+      tapingDrive:  { label: "Taping Drive",      qty: bp.tapingDrive?.manualQty ? bp.tapingDrive.qty : tapingDriveQty,       rate: bp.tapingDrive.rate,      total: bp.tapingDrive.manualTotal !== false ? bp.tapingDrive.manualTotal : (bp.tapingDrive?.manualQty ? bp.tapingDrive.qty : tapingDriveQty) * bp.tapingDrive.rate },
       management:   { label: "Management",        qty: bp.management.trips,  rate: bp.management.costPerTrip,total: bp.management.manualTotal !== false ? bp.management.manualTotal : bp.management.trips * bp.management.costPerTrip },
       warranty:     { label: "Warranty",          qty: bp.warranty.manualQty ? bp.warranty.qty : Math.round(boardingFootage / 1000), rate: bp.warranty.rate, total: bp.warranty.manualTotal !== false ? bp.warranty.manualTotal : (bp.warranty.manualQty ? bp.warranty.qty : Math.round(boardingFootage / 1000)) * bp.warranty.rate },
       scaffold:     { label: "Scaffold",          qty: bp.scaffold.qty,      rate: bp.scaffold.rate,         total: bp.scaffold.manualTotal !== false ? bp.scaffold.manualTotal : bp.scaffold.qty * bp.scaffold.rate },
@@ -2787,7 +2799,11 @@ Remove it anyway?`,
     const totalQuote = materialCost + accessoryCost + cartage + pstAmt + subTotal + ohAmt + profitAmt;
     const optionalItems = bp.optionalItems || [];
     const ohPlusProfitMultiplier = 1 + (bp.overhead.pct / 100) + (bp.profit.pct / 100);
-    const optionalItemsTotal = optionalItems.reduce((s, item) => s + (Number(item.cost) || 0) * ohPlusProfitMultiplier, 0);
+    const optionalItemsTotal = optionalItems.reduce((s, item) => {
+      const ohM = item.includeOH !== false ? (1 + bp.overhead.pct / 100) : 1;
+      const prM = item.includeProfit !== false ? (1 + bp.profit.pct / 100) : 1;
+      return s + (Number(item.cost) || 0) * ohM * prM;
+    }, 0);
 
 
 
@@ -2850,10 +2866,18 @@ Remove it anyway?`,
         row("OPTIONAL ITEMS");
         row("Item", "Cost", `OH+Profit (${bp.overhead.pct + bp.profit.pct}%)`, "Price");
         (bp.optionalItems || []).forEach(item => {
-          const price = (Number(item.cost) || 0) * ohPlusProfitMultiplier;
+          const ohM = item.includeOH !== false ? (1 + bp.overhead.pct / 100) : 1;
+          const prM = item.includeProfit !== false ? (1 + bp.profit.pct / 100) : 1;
+          const price = (Number(item.cost) || 0) * ohM * prM;
           row(item.label, (Number(item.cost) || 0).toFixed(2), "", price.toFixed(2));
         });
         row("Optional Items Total", "", "", optionalItemsTotal.toFixed(2));
+      }
+
+      if (currentJob?.notes?.trim()) {
+        row("");
+        row("SITE NOTES");
+        row(currentJob.notes.trim());
       }
 
       const csv = lines.join("\n");
@@ -3096,8 +3120,8 @@ Remove it anyway?`,
             >＋ Add Labour Line</button>
           </div>
 
-          <BPRow rowKey="boardingDrive" row={rows.boardingDrive} budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
-          <BPRow rowKey="tapingDrive" row={rows.tapingDrive} budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
+          <BPRow rowKey="boardingDrive" row={rows.boardingDrive} qtyEditable qtyPath="qty" budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
+          <BPRow rowKey="tapingDrive" row={rows.tapingDrive} qtyEditable qtyPath="qty" budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
           <BPRow rowKey="management" row={rows.management} qtyEditable qtyPath="trips" budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
           <BPRow rowKey="warranty" row={rows.warranty} qtyEditable qtyPath="qty" budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
           <BPRow rowKey="scaffold" row={rows.scaffold} qtyEditable qtyPath="qty" budgetPricing={currentJob?.budgetPricing} bp={bp} updateBP={updateBP} openBudgetEdit={openBudgetEdit} noTapeFootage={bp.taping?.noTapeFootage} inputStyle={styles.input} />
@@ -3138,7 +3162,12 @@ Remove it anyway?`,
             </div>
 
             {optionalItems.map((item) => {
-              const price = (Number(item.cost) || 0) * ohPlusProfitMultiplier;
+              const ohM = item.includeOH !== false ? (1 + bp.overhead.pct / 100) : 1;
+              const prM = item.includeProfit !== false ? (1 + bp.profit.pct / 100) : 1;
+              const price = (Number(item.cost) || 0) * ohM * prM;
+              const missingOH = item.includeOH === false;
+              const missingProfit = item.includeProfit === false;
+              const hasWarning = missingOH || missingProfit;
               return (
                 <div key={item.id} style={{ borderBottom: "1px solid #1e293b", background: "#0a1628" }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 90px", alignItems: "center", padding: "0 12px 0 8px" }}>
@@ -3147,14 +3176,37 @@ Remove it anyway?`,
                       <input
                         style={{ background: "transparent", border: "none", borderBottom: "1px solid #334155", color: "#e2e8f0", fontSize: 13, fontWeight: 600, padding: "2px 0", outline: "none", minWidth: 0, flex: 1 }}
                         value={item.label}
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) => updateOptionalItem(item.id, "label", e.target.value)}
                       />
                     </div>
                     <button
-                      style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#64748b", textAlign: "right", padding: "12px 0 12px 4px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent", fontFamily: "inherit" }}
+                      style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: hasWarning ? "#f59e0b" : "#64748b", textAlign: "right", padding: "12px 0 12px 4px", width: "100%", touchAction: "manipulation", WebkitTapHighlightColor: "transparent", fontFamily: "inherit" }}
                       onClick={() => openBudgetEdit(`Cost: ${item.label}`, item.cost, v => updateOptionalItem(item.id, "cost", v))}
-                    >cost ${(Number(item.cost) || 0).toFixed(0)}</button>
+                    >cost ${(Number(item.cost) || 0).toFixed(0)}{hasWarning && " ⚠"}</button>
                     <div style={{ fontSize: 13, fontWeight: 700, color: "#a78bfa", textAlign: "right", padding: "12px 0" }}>${price.toFixed(0)}</div>
+                  </div>
+                  {/* OH / Profit checkboxes */}
+                  <div style={{ display: "flex", gap: 16, padding: "0 12px 8px 36px", alignItems: "center" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: missingOH ? "#f59e0b" : "#475569", cursor: "pointer", userSelect: "none" }}>
+                      <input type="checkbox" checked={item.includeOH !== false}
+                        onChange={(e) => updateOptionalItem(item.id, "includeOH", e.target.checked)}
+                        style={{ accentColor: "#a78bfa", width: 14, height: 14 }}
+                      />
+                      OH ({bp.overhead.pct}%)
+                    </label>
+                    <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: missingProfit ? "#f59e0b" : "#475569", cursor: "pointer", userSelect: "none" }}>
+                      <input type="checkbox" checked={item.includeProfit !== false}
+                        onChange={(e) => updateOptionalItem(item.id, "includeProfit", e.target.checked)}
+                        style={{ accentColor: "#a78bfa", width: 14, height: 14 }}
+                      />
+                      Profit ({bp.profit.pct}%)
+                    </label>
+                    {hasWarning && (
+                      <span style={{ fontSize: 10, color: "#f59e0b", marginLeft: "auto" }}>
+                        ⚠ {[missingOH && "OH", missingProfit && "profit"].filter(Boolean).join(" & ")} excluded
+                      </span>
+                    )}
                   </div>
                 </div>
               );
@@ -3170,6 +3222,21 @@ Remove it anyway?`,
 
           <div style={{ padding: "8px 12px 24px" }}>
             <div style={{ fontSize: 10, color: "#334155", textAlign: "center" }}>⚠ = manually overridden · ↺ to reset to auto</div>
+          </div>
+
+          {/* Notes */}
+          <div style={{ borderTop: "2px solid #1e293b", padding: "12px 12px 32px" }}>
+            <div style={{ fontSize: 11, color: "#475569", fontWeight: 700, letterSpacing: 1.5, marginBottom: 8 }}>NOTES</div>
+            <textarea
+              value={bp.notes || ""}
+              onChange={(e) => updateBP("notes", e.target.value)}
+              placeholder="Internal notes — pricing rationale, site conditions, scope clarifications..."
+              style={{
+                width: "100%", boxSizing: "border-box", background: "#0d1a2a", border: "1px solid #1e293b",
+                borderRadius: 8, color: "#e2e8f0", fontSize: 13, padding: "10px 12px", outline: "none",
+                resize: "vertical", minHeight: 90, fontFamily: "inherit", lineHeight: 1.5,
+              }}
+            />
           </div>
         </div>
 
@@ -3773,7 +3840,7 @@ Remove it anyway?`,
         "12FG": "12FG — 1/2in Fireguard (FC Type C)", "12AR": "12AR — 1/2in Abuse Resistant", "58AR": "58AR — 5/8in Abuse Resistant",
         "1254": "1254 — 1/2in 54in Std Lite", "14FL": "14FL — 1/4in Flexible", "12TB": "12TB — 1/2in Tile Backer",
         "58TB": "58TB — 5/8in Tile Backer", "12DU": "12DU — 1/2in Durock", "58DU": "58DU — 5/8in Durock",
-        "12SR": "12SR — 1/2in Securock", "58SR": "58SR — 5/8in Securock", "01GM": "01GM — Shaft Board (Glass Mat)",
+        "12SR": "12SR — 1/2in Securock", "58SR": "58SR — 5/8in Securock", "01GM": "01GM — Shaft Board (Glass Mat)", "12QR510": "12QR510 — 1/2in QuietRock 510", "58QRES": "58QRES — 5/8in QuietRock ES",
       };
       Object.keys(boardLabelsLocal).forEach(code => {
         const price = sqftPrices?.[code] ?? DEFAULT_SQFT_PRICES[code];
@@ -3847,7 +3914,7 @@ Remove it anyway?`,
       "12MOLD": "12MOLD — 1/2in Aqua/Mold Tough", "58MOLD": "58MOLD — 5/8in Aqua/Mold Tough",
       "12SR": "12SR — 1/2in Securock", "58SR": "58SR — 5/8in Securock",
       "12FG": "12FG — 1/2in Fireguard (FC Type C)", "12AR": "12AR — 1/2in Abuse Resistant",
-      "58AR": "58AR — 5/8in Abuse Resistant", "01GM": "01GM — Shaft Board (Glass Mat)",
+      "58AR": "58AR — 5/8in Abuse Resistant", "01GM": "01GM — Shaft Board (Glass Mat)", "12QR510": "12QR510 — 1/2in QuietRock 510", "58QRES": "58QRES — 5/8in QuietRock ES",
     };
 
     const accSectionLabels = {
