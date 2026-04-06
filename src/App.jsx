@@ -31,17 +31,17 @@ const LENGTHS = ["8'", "9'", "10'", "12'", "14'"];
 // One price-per-sqft per material. Derived from Shoemaker Feb 20 2026 price list.
 // Stored in localStorage key: takeoff_sqft_prices (overrides these defaults)
 const DEFAULT_SQFT_PRICES = {
-  "12ST":   0.4500,
-  "58ULIX": 0.5960,
-  "58FG":   0.5650,
+  "12ST":   0.4400,
+  "58ULIX": 0.5650,
+  "58FG":   0.5400,
   "12TB":   1.6200,
   "58TB":   1.8450,
-  "12CD":   0.5700,
+  "12CD":   0.5400,
   "14FL":   0.8130,
-  "1254":   0.5650,
+  "1254":   0.5600,
   "12DU":   1.7200,
   "58DU":   2.4600,
-  "12MOLD": 1.0750,
+  "12MOLD": 1.0800,
   "58MOLD": 1.2500,
   "12SR":   1.1700,
   "58SR":   1.2669,
