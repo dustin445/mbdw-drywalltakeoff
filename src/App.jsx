@@ -209,6 +209,14 @@ const isMultiLineProduct = (product) => MULTI_LINE_PRODUCTS.some(code => product
 
 const DEFAULT_AREAS = ["Upper Floor", "Main Floor", "Basement", "Basement Suite", "Garage"];
 const MULTIFAMILY_AREAS = ["Unit 1", "Unit 2", "Unit 3", "Unit 4", "Unit 5", "Unit 6"];
+const TOWNHOME_DEFAULT_FLOORS = ["Upper Floor", "Main Floor", "Basement", "Garage"];
+
+const initUnit = (accessories) => ({
+  id: generateId(),
+  name: "",
+  floors: TOWNHOME_DEFAULT_FLOORS.map(f => ({ id: generateId(), name: f, data: initAreaData() })),
+  accessories: accessories || [],
+});
 
 const generateId = () => Math.random().toString(36).slice(2);
 
@@ -249,8 +257,15 @@ const initJob = (name, jobNumber = "", type = "single", defaultMaterials = DEFAU
   jobNumber,
   type,
   contact: "",
-  areas: (type === "multi" ? MULTIFAMILY_AREAS : DEFAULT_AREAS).map((a) => ({ id: generateId(), name: a, data: initAreaData() })),
-  accessories: ALL_ACCESSORIES.map((p) => ({ product: p, qty: 0, placement: "General" })),
+  areas: type === "townhome"
+    ? []
+    : (type === "multi" ? MULTIFAMILY_AREAS : DEFAULT_AREAS).map((a) => ({ id: generateId(), name: a, data: initAreaData() })),
+  units: type === "townhome"
+    ? [initUnit(ALL_ACCESSORIES.map(p => ({ product: p, qty: 0, placement: "General" })))]
+    : undefined,
+  accessories: type === "townhome"
+    ? undefined
+    : ALL_ACCESSORIES.map((p) => ({ product: p, qty: 0, placement: "General" })),
   selectedMaterials: [...defaultMaterials],
   ...(type === "budget" ? { budgetPricing: initBudgetPricing() } : {}),
 });
@@ -821,7 +836,10 @@ export default function TakeoffApp() {
       if (!state?.screen) { setScreen("home"); return; }
       // Back goes to logical parent screen
       setScreen(s => {
-        if (s === "area" || s === "accessories" || s === "budget") return "job";
+        if (s === "area") return currentJob?.type === "townhome" ? "unit" : "job";
+        if (s === "accessories") return currentJob?.type === "townhome" ? "unit" : "job";
+        if (s === "budget") return "job";
+        if (s === "unit") return "job";
         if (s === "job" || s === "pricing") return "home";
         return "home";
       });
@@ -887,8 +905,20 @@ export default function TakeoffApp() {
   const [showNewAreaModal, setShowNewAreaModal] = useState(false);
   const [newAreaName, setNewAreaName] = useState("");
   const [showNotesModal, setShowNotesModal] = useState(false);
+  const [showMprNotesModal, setShowMprNotesModal] = useState(false);
   const [showMaterialPicker, setShowMaterialPicker] = useState(false);
   const [beadStickMode, setBeadStickMode] = useState({}); // { [product]: true } for stick-count mode
+
+  const [currentUnitId, setCurrentUnitId] = useState(null);
+  const [currentFloorId, setCurrentFloorId] = useState(null);
+  const [showNewUnitModal, setShowNewUnitModal] = useState(false);
+  const [newUnitName, setNewUnitName] = useState("");
+  const [renamingUnitId, setRenamingUnitId] = useState(null);
+  const [renameUnitValue, setRenameUnitValue] = useState("");
+  const [deleteUnitId, setDeleteUnitId] = useState(null);
+  const [renamingFloorId, setRenamingFloorId] = useState(null);
+  const [renameFloorValue, setRenameFloorValue] = useState("");
+  const [deleteFloorId, setDeleteFloorId] = useState(null);
 
   const updateBeadOrder = (newOrder) => {
     setJobs(prev => prev.map(j =>
@@ -1027,6 +1057,33 @@ export default function TakeoffApp() {
 
   const currentJob = jobs.find((j) => j.id === currentJobId);
   const currentArea = currentJob?.areas.find((a) => a.id === currentAreaId);
+  const currentUnit = currentJob?.units?.find((u) => u.id === currentUnitId);
+  const currentFloor = currentUnit?.floors?.find((f) => f.id === currentFloorId);
+  const activeArea = currentJob?.type === "townhome" ? currentFloor : currentArea;
+  const activeAreaId = currentJob?.type === "townhome" ? currentFloorId : currentAreaId;
+
+  const updateQtyTownhome = (mat, len, delta) => {
+    setJobs(prev => prev.map(job => {
+      if (job.id !== currentJobId) return job;
+      return {
+        ...job,
+        units: job.units.map(u =>
+          u.id !== currentUnitId ? u : {
+            ...u,
+            floors: u.floors.map(f =>
+              f.id !== currentFloorId ? f : {
+                ...f,
+                data: {
+                  ...f.data,
+                  [mat]: { ...f.data[mat], [len]: Math.max(0, (f.data[mat][len] || 0) + delta) },
+                },
+              }
+            ),
+          }
+        ),
+      };
+    }));
+  };
 
   const updateQty = (mat, len, delta) => {
     setJobs((prev) =>
@@ -1054,7 +1111,8 @@ export default function TakeoffApp() {
     );
   };
 
-  const handleCellPress = (mat, len) => updateQty(mat, len, 1);
+  const handleCellPress = (mat, len) =>
+    currentJob?.type === "townhome" ? updateQtyTownhome(mat, len, 1) : updateQty(mat, len, 1);
 
   const longPressFired = useRef(false);
   const bulkDeleteTimer = useRef(null);
@@ -1072,9 +1130,9 @@ export default function TakeoffApp() {
 
       // 600ms more (1200ms total) — start deleting 1 per second
       bulkDeleteTimer.current = setTimeout(() => {
-        updateQty(mat, len, -1);
+        currentJob?.type === "townhome" ? updateQtyTownhome(mat, len, -1) : updateQty(mat, len, -1);
         bulkInterval.current = setInterval(() => {
-          updateQty(mat, len, -1);
+          currentJob?.type === "townhome" ? updateQtyTownhome(mat, len, -1) : updateQty(mat, len, -1);
         }, 1000);
       }, 600);
     }, 600);
@@ -1120,142 +1178,108 @@ export default function TakeoffApp() {
   };
 
   // Update a single line-item within a bead product's lines array
-  const updateBeadLine = (product, lineIdx, field, value) => {
-    setJobs((prev) =>
-      prev.map((job) =>
-        job.id !== currentJobId ? job : {
+  // Helper: update accessories array for the current context (job or townhome unit)
+  const mutateAccessories = (updater) => {
+    setJobs(prev => prev.map(job => {
+      if (job.id !== currentJobId) return job;
+      if (job.type === "townhome") {
+        return {
           ...job,
-          accessories: job.accessories.map((a) => {
-            if (a.product !== product) return a;
-            const lines = a.lines ? [...a.lines] : [{ qty: 1, length: 10 }];
-            lines[lineIdx] = { ...lines[lineIdx], [field]: value };
-            return { ...a, lines };
-          }),
-        }
-      )
-    );
+          units: job.units.map(u =>
+            u.id !== currentUnitId ? u : { ...u, accessories: updater(u.accessories) }
+          ),
+        };
+      }
+      return { ...job, accessories: updater(job.accessories) };
+    }));
+  };
+
+  const updateBeadLine = (product, lineIdx, field, value) => {
+    mutateAccessories(accs => accs.map(a => {
+      if (a.product !== product) return a;
+      const lines = a.lines ? [...a.lines] : [{ qty: 1, length: 10 }];
+      lines[lineIdx] = { ...lines[lineIdx], [field]: value };
+      return { ...a, lines };
+    }));
   };
 
   const addBeadLine = (product) => {
-    setJobs((prev) =>
-      prev.map((job) =>
-        job.id !== currentJobId ? job : {
-          ...job,
-          accessories: job.accessories.map((a) => {
-            if (a.product !== product) return a;
-            const lines = a.lines ? [...a.lines] : [];
-            return { ...a, lines: [...lines, { qty: 1, length: 10 }] };
-          }),
-        }
-      )
-    );
+    mutateAccessories(accs => accs.map(a => {
+      if (a.product !== product) return a;
+      const lines = a.lines ? [...a.lines] : [];
+      return { ...a, lines: [...lines, { qty: 1, length: 10 }] };
+    }));
   };
 
   const removeBeadLine = (product, lineIdx) => {
-    setJobs((prev) =>
-      prev.map((job) =>
-        job.id !== currentJobId ? job : {
-          ...job,
-          accessories: job.accessories.map((a) => {
-            if (a.product !== product) return a;
-            const lines = (a.lines || []).filter((_, i) => i !== lineIdx);
-            return { ...a, lines };
-          }),
-        }
-      )
-    );
+    mutateAccessories(accs => accs.map(a => {
+      if (a.product !== product) return a;
+      const lines = (a.lines || []).filter((_, i) => i !== lineIdx);
+      return { ...a, lines };
+    }));
   };
 
   // ── BEAD STICK-COUNT MODE ───────────────────────────────────────────────
   const updateBeadStickCount = (product, length, delta) => {
-    setJobs(prev => prev.map(job => {
-      if (job.id !== currentJobId) return job;
-      return {
-        ...job,
-        accessories: job.accessories.map(a => {
-          if (a.product !== product) return a;
-          const lines = a.lines ? [...a.lines] : [];
-          const idx = lines.findIndex(l => l.length === length);
-          if (idx >= 0) {
-            const newQty = Math.max(0, (lines[idx].qty || 0) + delta);
-            if (newQty === 0) {
-              return { ...a, lines: lines.filter((_, i) => i !== idx) };
-            }
-            const updated = [...lines];
-            updated[idx] = { ...updated[idx], qty: newQty };
-            return { ...a, lines: updated };
-          } else if (delta > 0) {
-            return { ...a, lines: [...lines, { qty: delta, length }] };
-          }
-          return a;
-        }),
-      };
+    mutateAccessories(accs => accs.map(a => {
+      if (a.product !== product) return a;
+      const lines = a.lines ? [...a.lines] : [];
+      const idx = lines.findIndex(l => l.length === length);
+      if (idx >= 0) {
+        const newQty = Math.max(0, (lines[idx].qty || 0) + delta);
+        if (newQty === 0) return { ...a, lines: lines.filter((_, i) => i !== idx) };
+        const updated = [...lines];
+        updated[idx] = { ...updated[idx], qty: newQty };
+        return { ...a, lines: updated };
+      } else if (delta > 0) {
+        return { ...a, lines: [...lines, { qty: delta, length }] };
+      }
+      return a;
     }));
   };
 
   const setBeadStickCount = (product, length, value) => {
-    setJobs(prev => prev.map(job => {
-      if (job.id !== currentJobId) return job;
-      return {
-        ...job,
-        accessories: job.accessories.map(a => {
-          if (a.product !== product) return a;
-          const lines = a.lines ? [...a.lines] : [];
-          const idx = lines.findIndex(l => l.length === length);
-          const qty = Math.max(0, value);
-          if (idx >= 0) {
-            if (qty === 0) return { ...a, lines: lines.filter((_, i) => i !== idx) };
-            const updated = [...lines];
-            updated[idx] = { ...updated[idx], qty };
-            return { ...a, lines: updated };
-          } else if (qty > 0) {
-            return { ...a, lines: [...lines, { qty, length }] };
-          }
-          return a;
-        }),
-      };
+    mutateAccessories(accs => accs.map(a => {
+      if (a.product !== product) return a;
+      const lines = a.lines ? [...a.lines] : [];
+      const idx = lines.findIndex(l => l.length === length);
+      const qty = Math.max(0, value);
+      if (idx >= 0) {
+        if (qty === 0) return { ...a, lines: lines.filter((_, i) => i !== idx) };
+        const updated = [...lines];
+        updated[idx] = { ...updated[idx], qty };
+        return { ...a, lines: updated };
+      } else if (qty > 0) {
+        return { ...a, lines: [...lines, { qty, length }] };
+      }
+      return a;
     }));
   };
 
   // ── MULTI-LINE (qty + area) for Metal & Track / Fasteners ──────────────
   const addMultiLine = (product) => {
-    setJobs(prev => prev.map(job =>
-      job.id !== currentJobId ? job : {
-        ...job,
-        accessories: job.accessories.map(a => {
-          if (a.product !== product) return a;
-          const lines = a.lines ? [...a.lines] : (a.qty > 0 ? [{ qty: a.qty, area: a.placement || "General" }] : []);
-          return { ...a, lines: [...lines, { qty: 0, area: "General" }], qty: 0 };
-        }),
-      }
-    ));
+    mutateAccessories(accs => accs.map(a => {
+      if (a.product !== product) return a;
+      const lines = a.lines ? [...a.lines] : (a.qty > 0 ? [{ qty: a.qty, area: a.placement || "General" }] : []);
+      return { ...a, lines: [...lines, { qty: 0, area: "General" }], qty: 0 };
+    }));
   };
 
   const updateMultiLine = (product, lineIdx, field, value) => {
-    setJobs(prev => prev.map(job =>
-      job.id !== currentJobId ? job : {
-        ...job,
-        accessories: job.accessories.map(a => {
-          if (a.product !== product) return a;
-          const lines = a.lines ? [...a.lines] : [];
-          lines[lineIdx] = { ...lines[lineIdx], [field]: value };
-          return { ...a, lines };
-        }),
-      }
-    ));
+    mutateAccessories(accs => accs.map(a => {
+      if (a.product !== product) return a;
+      const lines = a.lines ? [...a.lines] : [];
+      lines[lineIdx] = { ...lines[lineIdx], [field]: value };
+      return { ...a, lines };
+    }));
   };
 
   const removeMultiLine = (product, lineIdx) => {
-    setJobs(prev => prev.map(job =>
-      job.id !== currentJobId ? job : {
-        ...job,
-        accessories: job.accessories.map(a => {
-          if (a.product !== product) return a;
-          const lines = (a.lines || []).filter((_, i) => i !== lineIdx);
-          return { ...a, lines };
-        }),
-      }
-    ));
+    mutateAccessories(accs => accs.map(a => {
+      if (a.product !== product) return a;
+      const lines = (a.lines || []).filter((_, i) => i !== lineIdx);
+      return { ...a, lines };
+    }));
   };
 
   const [showJobNumberWarning, setShowJobNumberWarning] = useState(false);
@@ -1306,6 +1330,18 @@ export default function TakeoffApp() {
   const updateJobNotes = (notes) => {
     setJobs(prev => prev.map(j => j.id !== currentJobId ? j : { ...j, notes }));
   };
+  const updateJobMprNotes = (mprNotes) => {
+    setJobs(prev => prev.map(j => j.id !== currentJobId ? j : { ...j, mprNotes }));
+  };
+  const updateMprField = (field, value) => {
+    setJobs(prev => prev.map(j => j.id !== currentJobId ? j : {
+      ...j,
+      mprData: { ...(j.mprData || {}), [field]: value },
+    }));
+  };
+  const updateJobMprNotesEnabled = (mprNotesEnabled) => {
+    setJobs(prev => prev.map(j => j.id !== currentJobId ? j : { ...j, mprNotesEnabled }));
+  };
 
   const deleteArea = (areaId) => {
     setJobs((prev) =>
@@ -1329,11 +1365,21 @@ export default function TakeoffApp() {
   const duplicateJob = (jobId) => {
     const source = jobs.find(j => j.id === jobId);
     if (!source) return;
+    const cloned = JSON.parse(JSON.stringify(source));
     const newJob = {
-      ...JSON.parse(JSON.stringify(source)),
+      ...cloned,
       id: generateId(),
       name: source.name + " (Copy)",
-      areas: source.areas.map(a => ({ ...JSON.parse(JSON.stringify(a)), id: generateId() })),
+      areas: source.type === "townhome"
+        ? []
+        : (cloned.areas || []).map(a => ({ ...a, id: generateId() })),
+      units: source.type === "townhome"
+        ? (cloned.units || []).map(u => ({
+            ...u,
+            id: generateId(),
+            floors: (u.floors || []).map(f => ({ ...f, id: generateId() })),
+          }))
+        : undefined,
     };
     setJobs(prev => [newJob, ...prev]);
     showToast("✅ Job duplicated!");
@@ -1365,6 +1411,140 @@ export default function TakeoffApp() {
     setRenamingAreaId(null);
   };
 
+  // ── TOWNHOME UNIT CRUD ──────────────────────────────────────────────────────
+  const addUnit = () => {
+    const unit = initUnit(ALL_ACCESSORIES.map(p => ({ product: p, qty: 0, placement: "General" })));
+    setJobs(prev => prev.map(j =>
+      j.id !== currentJobId ? j : { ...j, units: [...(j.units || []), unit] }
+    ));
+  };
+
+  const renameUnit = (unitId, name) => {
+    setJobs(prev => prev.map(j =>
+      j.id !== currentJobId ? j : {
+        ...j,
+        units: j.units.map(u => u.id !== unitId ? u : { ...u, name }),
+      }
+    ));
+    setRenamingUnitId(null);
+  };
+
+  const duplicateUnit = (unitId) => {
+    const source = currentJob?.units?.find(u => u.id === unitId);
+    if (!source) return;
+    const newUnit = {
+      ...JSON.parse(JSON.stringify(source)),
+      id: generateId(),
+      name: (source.name || "") + " (Copy)",
+      floors: source.floors.map(f => ({ ...JSON.parse(JSON.stringify(f)), id: generateId() })),
+    };
+    setJobs(prev => prev.map(j =>
+      j.id !== currentJobId ? j : { ...j, units: [...(j.units || []), newUnit] }
+    ));
+    showToast("✅ Unit duplicated!");
+  };
+
+  const deleteUnit = (unitId) => {
+    setJobs(prev => prev.map(j =>
+      j.id !== currentJobId ? j : { ...j, units: (j.units || []).filter(u => u.id !== unitId) }
+    ));
+    setDeleteUnitId(null);
+  };
+
+  const unitHasQuantities = (unit) =>
+    (unit.floors || []).some(f =>
+      selectedMaterials.some(mat => LENGTHS.some(len => (f.data[mat]?.[len] || 0) > 0))
+    );
+
+  // ── TOWNHOME FLOOR CRUD ─────────────────────────────────────────────────────
+  const addFloor = (name) => {
+    const floor = { id: generateId(), name: name.trim(), data: initAreaData() };
+    setJobs(prev => prev.map(j =>
+      j.id !== currentJobId ? j : {
+        ...j,
+        units: j.units.map(u =>
+          u.id !== currentUnitId ? u : { ...u, floors: [...u.floors, floor] }
+        ),
+      }
+    ));
+  };
+
+  const renameFloor = (floorId, name) => {
+    setJobs(prev => prev.map(j =>
+      j.id !== currentJobId ? j : {
+        ...j,
+        units: j.units.map(u =>
+          u.id !== currentUnitId ? u : {
+            ...u,
+            floors: u.floors.map(f => f.id !== floorId ? f : { ...f, name }),
+          }
+        ),
+      }
+    ));
+    setRenamingFloorId(null);
+  };
+
+  const duplicateFloor = (floorId) => {
+    const source = currentUnit?.floors?.find(f => f.id === floorId);
+    if (!source) return;
+    const newFloor = { ...JSON.parse(JSON.stringify(source)), id: generateId(), name: source.name + " (Copy)" };
+    setJobs(prev => prev.map(j =>
+      j.id !== currentJobId ? j : {
+        ...j,
+        units: j.units.map(u =>
+          u.id !== currentUnitId ? u : { ...u, floors: [...u.floors, newFloor] }
+        ),
+      }
+    ));
+    showToast("✅ Floor duplicated!");
+  };
+
+  const deleteFloor = (floorId) => {
+    setJobs(prev => prev.map(j =>
+      j.id !== currentJobId ? j : {
+        ...j,
+        units: j.units.map(u =>
+          u.id !== currentUnitId ? u : { ...u, floors: u.floors.filter(f => f.id !== floorId) }
+        ),
+      }
+    ));
+    setDeleteFloorId(null);
+  };
+
+  const floorHasQuantities = (floor) =>
+    selectedMaterials.some(mat => LENGTHS.some(len => (floor.data[mat]?.[len] || 0) > 0));
+
+  // ── TOWNHOME ACCESSORY HELPERS ──────────────────────────────────────────────
+  const updateUnitAccessory = (product, field, value) => {
+    setJobs(prev => prev.map(job =>
+      job.id !== currentJobId ? job : {
+        ...job,
+        units: job.units.map(u =>
+          u.id !== currentUnitId ? u : {
+            ...u,
+            accessories: u.accessories.map(a => a.product === product ? { ...a, [field]: value } : a),
+          }
+        ),
+      }
+    ));
+  };
+
+  const updateUnitAccessoryQty = (product, delta) => {
+    setJobs(prev => prev.map(job =>
+      job.id !== currentJobId ? job : {
+        ...job,
+        units: job.units.map(u =>
+          u.id !== currentUnitId ? u : {
+            ...u,
+            accessories: u.accessories.map(a =>
+              a.product === product ? { ...a, qty: Math.max(0, a.qty + delta) } : a
+            ),
+          }
+        ),
+      }
+    ));
+  };
+
   const saveJobEdit = (jobId) => {
     if (!editJobName.trim()) return;
     setJobs((prev) =>
@@ -1387,10 +1567,6 @@ export default function TakeoffApp() {
       ? `"Job #: ${currentJob.jobNumber}"\n"Order: ${currentJob.name}"\n\n`
       : `"Order: ${currentJob.name}"\n\n`;
 
-    if (withPricing && currentJob.notes?.trim()) {
-      // site notes go to MPR export only - not here
-    }
-
     if (!withPricing) {
       csv += `"INSTRUCTIONS: Fill in the UNIT PRICE column below (one price per material type). Save and import back using IMPORT NEW PRICING."\n\n`;
 
@@ -1400,7 +1576,6 @@ export default function TakeoffApp() {
           LENGTHS.some(len => (area.data[mat]?.[len] || 0) > 0)
         )
       );
-      // Consolidated pricing sheet — one row per material type
       csv += `"=== PRICING SHEET — FILL IN UNIT PRICES BELOW ==="\n`;
       csv += `"Material","Total Sq Ft","$/SQ FT  << FILL IN"\n`;
       usedMats.forEach(mat => {
@@ -1434,9 +1609,9 @@ export default function TakeoffApp() {
       if (areaTotal(area) === 0) return;
       csv += `"AREA: ${area.name}"\n`;
       if (withPricing) {
-        csv += `"Material",${LENGTHS.map(l => `"${l}"`).join(",")},\"SHEET TOTAL\",\"SQ FT\",\"$/SQ FT\",\"TOTAL COST\"\n`;
+        csv += `"Material","8'","9'","10'","12'","14'","SHEET TOTAL","SQ FT","$/SQ FT","TOTAL COST"\n`;
       } else {
-        csv += `"Material",${LENGTHS.map(l => `"${l}"`).join(",")},\"SHEET TOTAL\",\"SQ FT\"\n`;
+        csv += `"Material","8'","9'","10'","12'","14'","SHEET TOTAL","SQ FT"\n`;
       }
       mats.forEach((mat) => {
         const rowData = LENGTHS.map((len) => area.data[mat]?.[len] || 0);
@@ -1459,9 +1634,9 @@ export default function TakeoffApp() {
           const sqft = LENGTHS.reduce((ss, len) => ss + (area.data[mat]?.[len] || 0) * sheetWidth(mat) * lenFeet(len), 0);
           return s + sqft * pricePsf;
         }, 0);
-        csv += `"TOTALS",,,,${totalSheets},${totalSqFt},,${areaCost.toFixed(2)}\n\n`;
+        csv += `"TOTALS","","","","","",${totalSheets},${totalSqFt},,${areaCost.toFixed(2)}\n\n`;
       } else {
-        csv += `"TOTALS",,,,${totalSheets},${totalSqFt}\n\n`;
+        csv += `"TOTALS","","","","","",${totalSheets},${totalSqFt}\n\n`;
       }
     });
 
@@ -1483,7 +1658,7 @@ export default function TakeoffApp() {
     if (usedAccessories.length > 0) {
       csv += `"ACCESSORIES & SUPPLIES"\n`;
       if (withPricing) {
-        csv += `"Product","Qty","Placement","Unit Price","Total"\n`;
+        csv += `"Product","Qty","Length","Total Ft","Placement","Unit Price","Total"\n`;
         let accTotal = 0;
         usedAccessories.forEach(a => {
           const code = a.product.split(" ")[0];
@@ -1493,21 +1668,21 @@ export default function TakeoffApp() {
               const ft = (l.qty || 0) * (l.length || 0);
               const cost = ft * (priceData?.price ?? 0);
               accTotal += cost;
-              csv += `"${a.product} (${l.qty}pc × ${l.length}ft)",${ft},"${a.placement || ""}",${(priceData?.price ?? 0).toFixed(4)},${cost.toFixed(2)}\n`;
+              csv += `"${a.product}",${l.qty},${l.length},${ft},"${a.placement || ""}",${(priceData?.price ?? 0).toFixed(4)},${cost.toFixed(2)}\n`;
             });
           } else if (isMultiLineProduct(a.product) && a.lines?.length > 0) {
             a.lines.filter(l => l.qty > 0).forEach(l => {
               const cost = (l.qty || 0) * (priceData?.price ?? 0);
               accTotal += cost;
-              csv += `"${a.product}",${l.qty},"${l.area || "General"}",${(priceData?.price ?? 0).toFixed(4)},${cost.toFixed(2)}\n`;
+              csv += `"${a.product}",${l.qty},,,"${l.area || "General"}",${(priceData?.price ?? 0).toFixed(4)},${cost.toFixed(2)}\n`;
             });
           } else {
             const cost = (a.qty || 0) * (priceData?.price ?? 0);
             accTotal += cost;
-            csv += `"${a.product}",${a.qty},"${a.placement || ""}",${(priceData?.price ?? 0).toFixed(4)},${cost.toFixed(2)}\n`;
+            csv += `"${a.product}",${a.qty},,,"${a.placement || ""}",${(priceData?.price ?? 0).toFixed(4)},${cost.toFixed(2)}\n`;
           }
         });
-        csv += `"ACCESSORIES TOTAL","","","","$${accTotal.toFixed(2)}"\n`;
+        csv += `"ACCESSORIES TOTAL","","","","","","$${accTotal.toFixed(2)}"\n`;
         csv += `\n`;
 
         // Combined total material cost
@@ -1522,21 +1697,22 @@ export default function TakeoffApp() {
           ? currentJob.budgetPricing.cartage.manualTotal
           : grandSqFt > 0 ? Math.max(250, grandSqFt * 0.065) : 0;
         const totalMaterialCost = grandBoardCost + accTotal + cartageForTotal;
-        csv += `"TOTAL MATERIAL COST (boards + accessories + cartage)","","","","$${totalMaterialCost.toFixed(2)}"\n`;
+        csv += `"TOTAL MATERIAL COST (boards + accessories + cartage)","","","","","","$${totalMaterialCost.toFixed(2)}"\n`;
         csv += `\n`;
       } else {
-        csv += `"Product","Qty","Placement"\n`;
+        csv += `"Product","Qty","Length","Total Ft","Placement"\n`;
         usedAccessories.forEach(a => {
           if (isBeadProduct(a.product) && a.lines?.length > 0) {
             a.lines.filter(l => l.qty > 0).forEach(l => {
-              csv += `"${a.product} (${l.qty}pc × ${l.length}ft)",${(l.qty||0)*(l.length||0)},"${a.placement || ""}"\n`;
+              const ft = (l.qty || 0) * (l.length || 0);
+              csv += `"${a.product}",${l.qty},${l.length},${ft},"${a.placement || ""}"\n`;
             });
           } else if (isMultiLineProduct(a.product) && a.lines?.length > 0) {
             a.lines.filter(l => l.qty > 0).forEach(l => {
-              csv += `"${a.product}",${l.qty},"${l.area || "General"}"\n`;
+              csv += `"${a.product}",${l.qty},,,"${l.area || "General"}"\n`;
             });
           } else {
-            csv += `"${a.product}",${a.qty},"${a.placement || ""}"\n`;
+            csv += `"${a.product}",${a.qty},,,"${a.placement || ""}"\n`;
           }
         });
       }
@@ -1654,6 +1830,63 @@ export default function TakeoffApp() {
       csv += `\n`;
     }
 
+    // Site notes always go to MPR export
+    if (withPricing && currentJob.notes?.trim()) {
+      csv += `"INTERNAL SITE NOTES"\n"${currentJob.notes.trim().replace(/"/g, '""').replace(/\n/g, " | ")}"\n\n`;
+    }
+    // MPR notes go to MPR export only if enabled
+    if (withPricing && currentJob.mprNotesEnabled) {
+      const d = currentJob.mprData || {};
+      const def = (val, fallback) => (val !== undefined ? val : fallback);
+      const macleanContact = def(d.macleanContact, "John Smith – 604-613-1484 John.smith@mbdw.ca");
+
+      const windowLabels = {
+        A: "Wood returns, no drywall required",
+        B: "Drywall returns with plastic J bead: boarders to cut and place window returns, bead crew to install plastic. *If there are gaps between the drywall, plastic J, or drywall edge and the window frame, please fur out the return to bypass the gap. Fixed rate to be discussed.",
+        C: "Drywall returns with tear-away bead: boarders to cut and install window returns. *If there are gaps between the drywall, plastic J, or drywall edge and the window frame, please fur out the return to bypass the gap. Fixed rate to be discussed.",
+        off: "N/A",
+      };
+      const closetLabels = { A: "Swing doors", B: "Bifold doors", C: "Half-jambs", off: "N/A" };
+      const underStairsLabels = { A: "Boarded and finished", B: "Boarded only", C: "Boarded on exterior walls only", off: "N/A" };
+      const mechLabels = { A: "Boarded and finished", B: "Boarded and finished on accessible walls/ceilings only", off: "N/A" };
+      const fireplaceLabels = {
+        A: "To be confirmed on site",
+        B: "Full drywall finished with L-edge around the flange",
+        C: "Concrete board 16\" around flange – rest is drywall finish",
+        D: "Full concrete board (No finishing)",
+        off: "N/A",
+      };
+      const ceilingLabels = { A: "Painted", B: "Textured", off: "N/A" };
+      const projectTypeLabels = { A: "New build", B: "Renovation", off: "N/A" };
+
+      const esc = (s) => String(s || "").replace(/"/g, '""');
+
+      csv += `"MPR NOTES"\n`;
+      csv += `"=== ACCESS INFORMATION ==="\n`;
+      csv += `"Access","${esc(d.access)}"\n`;
+      csv += `"Gate Code","${esc(d.gateCode)}"\n`;
+      csv += `"Key Location","${esc(d.keyLocation)}"\n`;
+      csv += `"Key Lockbox Code","${esc(d.lockboxCode)}"\n`;
+      csv += `"Alarm Code","${esc(d.alarmCode)}"\n`;
+      csv += `\n`;
+      csv += `"=== CONTACTS ==="\n`;
+      csv += `"Builder","${esc(d.builder)}"\n`;
+      csv += `"Site Contact","${esc(d.siteContact)}"\n`;
+      csv += `"Homeowner","${esc(d.homeowner)}"\n`;
+      csv += `"MacLean Contact / Billing Contact","${esc(macleanContact)}"\n`;
+      csv += `\n`;
+      csv += `"=== SITE INFORMATION ==="\n`;
+      if (d.projectType && d.projectType !== "off") csv += `"Project Type","${esc(projectTypeLabels[d.projectType] || d.projectType)}"\n`;
+      if (d.windows && d.windows !== "off") csv += `"Windows","${esc(windowLabels[d.windows] || d.windows)}"\n`;
+      if (d.closets && d.closets !== "off") csv += `"Closets","${esc(closetLabels[d.closets] || d.closets)}"\n`;
+      if (d.underStairs && d.underStairs !== "off") csv += `"Under Stairs","${esc(underStairsLabels[d.underStairs] || d.underStairs)}"\n`;
+      if (d.mechRoom && d.mechRoom !== "off") csv += `"Mech Room","${esc(mechLabels[d.mechRoom] || d.mechRoom)}"\n`;
+      if (d.fireplace && d.fireplace !== "off") csv += `"Fireplace","${esc(fireplaceLabels[d.fireplace] || d.fireplace)}"\n`;
+      if (d.ceilings && d.ceilings !== "off") csv += `"Ceilings","${esc(ceilingLabels[d.ceilings] || d.ceilings)}"\n`;
+      if (d.additionalNotes?.trim()) csv += `"Additional Notes","${esc(d.additionalNotes)}"\n`;
+      csv += `\n`;
+    }
+
     const filename = `${currentJob.name.replace(/\s+/g, "_")}_${withPricing ? "MPR" : "order_for_pricing"}.csv`;
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
 
@@ -1684,6 +1917,97 @@ export default function TakeoffApp() {
       a.style.display = "none";
       document.body.appendChild(a);
       a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+      showToast("✅ Downloading to your device!");
+    } catch (e) {
+      const reader = new FileReader();
+      reader.onload = () => { window.open(reader.result, "_blank"); showToast("✅ Opened — use Share to save!"); };
+      reader.readAsDataURL(blob);
+    }
+  };
+
+  const exportTownhomeCSV = async () => {
+    if (!currentJob) return;
+    const mats = selectedMaterials.length > 0 ? selectedMaterials : MATERIALS;
+    let csv = currentJob.jobNumber
+      ? `"Job #: ${currentJob.jobNumber}"\n"Order: ${currentJob.name}"\n\n`
+      : `"Order: ${currentJob.name}"\n\n`;
+
+    (currentJob.units || []).forEach((unit, ui) => {
+      const unitLabel = unit.name || `Unit ${ui + 1}`;
+      const activeFloors = unit.floors.filter(f =>
+        mats.some(mat => LENGTHS.some(len => (f.data[mat]?.[len] || 0) > 0))
+      );
+      if (activeFloors.length === 0) return;
+      csv += `"=== ${unitLabel.toUpperCase()} ==="\n\n`;
+      activeFloors.forEach(floor => {
+        csv += `"FLOOR: ${floor.name}"\n`;
+        csv += `"Material","8'","9'","10'","12'","14'","SHEET TOTAL","SQ FT"\n`;
+        mats.forEach(mat => {
+          const rowData = LENGTHS.map(len => floor.data[mat]?.[len] || 0);
+          const sheetTotal = rowData.reduce((a, b) => a + b, 0);
+          if (sheetTotal === 0) return;
+          const sqft = LENGTHS.reduce((s, len, i) => s + rowData[i] * sheetWidth(mat) * lenFeet(len), 0);
+          csv += `"${mat}",${rowData.join(",")},${sheetTotal},${Math.round(sqft)}\n`;
+        });
+        const floorSheets = mats.reduce((s, mat) => s + LENGTHS.reduce((ss, len) => ss + (floor.data[mat]?.[len] || 0), 0), 0);
+        const floorSqft = areaSqFt(floor, mats);
+        csv += `"TOTALS",,,,${floorSheets},${floorSqft}\n\n`;
+      });
+    });
+
+    const grandSheets = (currentJob.units || []).reduce((s, u) =>
+      s + u.floors.reduce((fs, f) => fs + mats.reduce((ms, mat) => ms + LENGTHS.reduce((ls, len) => ls + (f.data[mat]?.[len] || 0), 0), 0), 0), 0);
+    const grandSqft = (currentJob.units || []).reduce((s, u) =>
+      s + u.floors.reduce((fs, f) => fs + areaSqFt(f, mats), 0), 0);
+    csv += `"BOARD TOTAL SHEETS",${grandSheets}\n`;
+    csv += `"BOARD TOTAL SQ FT",${grandSqft}\n\n`;
+
+    (currentJob.units || []).forEach((unit, ui) => {
+      const unitLabel = unit.name || `Unit ${ui + 1}`;
+      const usedAcc = (unit.accessories || []).filter(a => a.qty > 0 || (a.lines && a.lines.some(l => l.qty > 0)));
+      if (usedAcc.length === 0) return;
+      csv += `"ACCESSORIES — ${unitLabel.toUpperCase()}"\n`;
+      csv += `"Product","Qty","Placement"\n`;
+      usedAcc.forEach(a => {
+        if (isBeadProduct(a.product) && a.lines?.length > 0) {
+          a.lines.filter(l => l.qty > 0).forEach(l => {
+            csv += `"${a.product} (${l.qty}pc × ${l.length}ft)",${(l.qty||0)*(l.length||0)},"${a.placement || ""}"\n`;
+          });
+        } else if (isMultiLineProduct(a.product) && a.lines?.length > 0) {
+          a.lines.filter(l => l.qty > 0).forEach(l => {
+            csv += `"${a.product}",${l.qty},"${l.area || "General"}"\n`;
+          });
+        } else {
+          csv += `"${a.product}",${a.qty},"${a.placement || ""}"\n`;
+        }
+      });
+      csv += "\n";
+    });
+
+    if (currentJob.notes?.trim()) {
+      csv += `"SITE NOTES"\n"${currentJob.notes.trim().replace(/"/g, '""').replace(/\n/g, " | ")}"\n`;
+    }
+
+    const filename = `${currentJob.name.replace(/\s+/g, "_")}_townhome_order.csv`;
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    if (navigator.share && navigator.canShare) {
+      try {
+        const file = new File([blob], filename, { type: "text/csv" });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: filename });
+          showToast("✅ Shared successfully!");
+          return;
+        }
+      } catch (e) {
+        if (e.name === "AbortError") return;
+      }
+    }
+    try {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = filename; a.style.display = "none";
+      document.body.appendChild(a); a.click();
       setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
       showToast("✅ Downloading to your device!");
     } catch (e) {
@@ -1779,8 +2103,30 @@ export default function TakeoffApp() {
 
   // Wipe any quantities in disabled cells (cleans up legacy data)
   const cleanDisabledCells = (jobId, areaId) => {
+    const job = jobs.find(j => j.id === jobId);
+    const isTH = job?.type === "townhome";
     setJobs((prev) => prev.map((j) => {
       if (j.id !== jobId) return j;
+      if (isTH) {
+        return {
+          ...j,
+          units: j.units.map(u =>
+            u.id !== currentUnitId ? u : {
+              ...u,
+              floors: u.floors.map(f => {
+                if (f.id !== areaId) return f;
+                const newData = { ...f.data };
+                Object.keys(newData).forEach(mat => {
+                  LENGTHS.forEach(len => {
+                    if (isDisabledCell(mat, len)) newData[mat] = { ...newData[mat], [len]: 0 };
+                  });
+                });
+                return { ...f, data: newData };
+              }),
+            }
+          ),
+        };
+      }
       return {
         ...j,
         areas: j.areas.map((a) => {
@@ -2019,15 +2365,16 @@ export default function TakeoffApp() {
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <div style={styles.jobName}>{job.name}</div>
                         <span style={{ ...styles.typeBadge,
-                            background: job.type === "multi" ? "#7c3aed22" : job.type === "budget" ? "#06402022" : "#0369a122",
-                            color: job.type === "multi" ? "#a78bfa" : job.type === "budget" ? "#34d399" : "#38bdf8",
-                            borderColor: job.type === "multi" ? "#7c3aed44" : job.type === "budget" ? "#06402044" : "#0369a144"
+                            background: job.type === "multi" ? "#7c3aed22" : job.type === "budget" ? "#06402022" : job.type === "townhome" ? "#0f766e22" : "#0369a122",
+                            color: job.type === "multi" ? "#a78bfa" : job.type === "budget" ? "#34d399" : job.type === "townhome" ? "#2dd4bf" : "#38bdf8",
+                            borderColor: job.type === "multi" ? "#7c3aed44" : job.type === "budget" ? "#06402044" : job.type === "townhome" ? "#0f766e44" : "#0369a144"
                           }}>
-                          {job.type === "multi" ? "MULTI" : job.type === "budget" ? "BUDGET" : "SINGLE"}
+                          {job.type === "multi" ? "APT" : job.type === "budget" ? "BUDGET" : job.type === "townhome" ? "TOWNHOME" : "SINGLE"}
                         </span>
                       </div>
                       <div style={styles.jobMeta}>
-                        {job.jobNumber ? `#${job.jobNumber} · ` : ""}{job.areas.length} area(s)
+                        {job.jobNumber ? `#${job.jobNumber} · ` : ""}
+                        {job.type === "townhome" ? `${job.units?.length || 0} unit(s)` : `${job.areas.length} area(s)`}
                       </div>
                     </div>
                     <span style={{ fontSize: 20 }}>›</span>
@@ -2122,7 +2469,13 @@ export default function TakeoffApp() {
                 style={{ ...styles.typeBtn, background: newJobType === "multi" ? "#7c3aed" : "#1e293b", borderColor: newJobType === "multi" ? "#a78bfa" : "#334155", color: newJobType === "multi" ? "#fff" : "#94a3b8" }}
                 onClick={() => setNewJobType("multi")}
               >
-                🏢 Multifamily
+                🏢 Apartment
+              </button>
+              <button
+                style={{ ...styles.typeBtn, background: newJobType === "townhome" ? "#0f766e" : "#1e293b", borderColor: newJobType === "townhome" ? "#2dd4bf" : "#334155", color: newJobType === "townhome" ? "#fff" : "#94a3b8" }}
+                onClick={() => setNewJobType("townhome")}
+              >
+                🏘 Townhome
               </button>
               {isBudgetUnlocked ? (
                 <button
@@ -2176,6 +2529,8 @@ export default function TakeoffApp() {
                 ? "Preloads Units 1–6 (renameable)"
                 : newJobType === "budget"
                 ? "Preloads Upper Floor, Main Floor, Basement, Suite, Garage + Pricing Matrix"
+                : newJobType === "townhome"
+                ? "Starts with 1 unit · each unit has Upper Floor, Main, Basement, Garage"
                 : "Preloads Upper Floor, Main Floor, Basement, Suite, Garage"}
             </div>
             <button style={styles.btnPrimary} onClick={() => createJob()}>Create Job</button>
@@ -2206,6 +2561,167 @@ export default function TakeoffApp() {
   }
 
   if (screen === "job") {
+    // ── TOWNHOME: Unit list screen ──────────────────────────────────────────
+    if (currentJob?.type === "townhome") {
+      const units = currentJob.units || [];
+      const unitSummary = (unit) => ({
+        sheets: unit.floors.reduce((s, f) => s + areaTotal(f), 0),
+        sqft: unit.floors.reduce((s, f) => s + areaSqFt(f, selectedMaterials), 0),
+      });
+      const grandSheets = units.reduce((s, u) => s + unitSummary(u).sheets, 0);
+      const grandSqft = units.reduce((s, u) => s + unitSummary(u).sqft, 0);
+      return (
+        <div style={{ ...styles.shell, maxWidth: isLandscape ? "100%" : 520 }}>
+          <div style={styles.header}>
+            <button style={styles.back} onClick={() => navigate("home")}>‹</button>
+            <div style={{ flex: 1 }}>
+              <div style={styles.headerTitle}>{currentJob.name}</div>
+              {currentJob.jobNumber ? <div style={{ fontSize: 11, color: "#64748b" }}>#{currentJob.jobNumber}</div> : null}
+            </div>
+            <button style={{ fontSize: 10, fontWeight: 700, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", whiteSpace: "nowrap", background: "#0e7490", color: "#fff" }} onClick={exportTownhomeCSV}>EXPORT ORDER</button>
+          </div>
+          <div style={styles.body}>
+            <div style={styles.sectionRow}>
+              <span style={styles.sectionLabel}>UNITS ({units.length})</span>
+              <button style={styles.smallBtn} onClick={addUnit}>+ Add Unit</button>
+            </div>
+            <div style={styles.list}>
+              {units.map((unit, ui) => {
+                const { sheets, sqft } = unitSummary(unit);
+                const hasQty = unitHasQuantities(unit);
+                return (
+                  <div key={unit.id} style={styles.areaRow}>
+                    {renamingUnitId === unit.id ? (
+                      <div style={{ flex: 1, display: "flex", gap: 6 }}>
+                        <input
+                          autoFocus
+                          style={{ ...styles.input, marginBottom: 0, flex: 1 }}
+                          value={renameUnitValue}
+                          placeholder={`Unit ${ui + 1}`}
+                          onChange={(e) => setRenameUnitValue(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") renameUnit(unit.id, renameUnitValue); if (e.key === "Escape") setRenamingUnitId(null); }}
+                        />
+                        <button style={styles.accConfirmBtn} onClick={() => renameUnit(unit.id, renameUnitValue)}>✓</button>
+                        <button style={{ ...styles.accClearBtn, fontSize: 16 }} onClick={() => setRenamingUnitId(null)}>✕</button>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          style={styles.areaCard}
+                          onClick={() => { setCurrentUnitId(unit.id); navigate("unit"); }}
+                        >
+                          <div>
+                            <div style={styles.areaName}>{unit.name || `Unit ${ui + 1}`}</div>
+                            <div style={styles.areaMeta}>{sheets} sheets · {sqft} ft²</div>
+                          </div>
+                          <span style={{ fontSize: 20 }}>›</span>
+                        </button>
+                        <button style={styles.renameAreaBtn} onClick={() => { setRenamingUnitId(unit.id); setRenameUnitValue(unit.name || ""); }}>✏️</button>
+                        <button style={styles.renameAreaBtn} onClick={() => duplicateUnit(unit.id)}>⧉</button>
+                        {hasQty
+                          ? <button style={{ ...styles.deleteAreaBtn, color: "#334155", cursor: "not-allowed" }} title="Cannot delete — unit has quantities">🔒</button>
+                          : <button style={styles.deleteAreaBtn} onClick={() => { window.history.pushState({ modal: "deleteUnit" }, "", ""); setDeleteUnitId(unit.id); }}>🗑</button>
+                        }
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {grandSheets > 0 && (
+              <div style={styles.jobSummaryCard}>
+                <div style={styles.jobSummaryLabel}>JOB TOTAL</div>
+                <div style={styles.jobSummaryRow}>
+                  <div style={styles.jobSummaryItem}>
+                    <div style={styles.jobSummaryValue}>{grandSheets}</div>
+                    <div style={styles.jobSummaryUnit}>sheets</div>
+                  </div>
+                  <div style={styles.jobSummaryDivider} />
+                  <div style={styles.jobSummaryItem}>
+                    <div style={{ ...styles.jobSummaryValue, color: "#34d399" }}>{grandSqft}</div>
+                    <div style={styles.jobSummaryUnit}>ft²</div>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div style={{ marginTop: 16 }}>
+              <div style={styles.sectionRow}>
+                <span style={styles.sectionLabel}>ACTIVE BOARD TYPES ({selectedMaterials.length})</span>
+                <button style={styles.smallBtn} onClick={() => setShowMaterialPicker(true)}>Edit</button>
+              </div>
+              {selectedMaterials.map((m) => (
+                <div key={m} style={styles.matChip}>{m}</div>
+              ))}
+            </div>
+            {/* Site Notes */}
+            <div style={{ marginTop: 12 }}>
+              <div style={styles.sectionRow}>
+                <span style={styles.sectionLabel}>SITE NOTES</span>
+              </div>
+              <button
+                onClick={() => setShowNotesModal(true)}
+                style={{ width: "100%", background: "#0d1a2a", border: "1px solid #1e293b", borderRadius: 10, padding: "10px 12px", textAlign: "left", cursor: "pointer", color: currentJob?.notes ? "#cbd5e1" : "#475569", fontSize: 13, lineHeight: 1.55, display: "block", maxHeight: 88, overflowY: "auto", boxSizing: "border-box", whiteSpace: "pre-wrap", wordBreak: "break-word", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+              >
+                {currentJob?.notes || "Tap to add site notes…"}
+              </button>
+            </div>
+          </div>
+          {toast && <div style={styles.toast}>{toast}</div>}
+          {deleteUnitId && (
+            <Modal title="Delete Unit?" onClose={() => setDeleteUnitId(null)}>
+              <p style={{ color: "#94a3b8", fontSize: 14 }}>This will permanently delete the unit and all its floors. This cannot be undone.</p>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button style={{ ...styles.btnPrimary, background: "#ef4444", flex: 1 }} onClick={() => deleteUnit(deleteUnitId)}>Delete</button>
+                <button style={{ ...styles.smallBtn, flex: 1, padding: "12px" }} onClick={() => setDeleteUnitId(null)}>Cancel</button>
+              </div>
+            </Modal>
+          )}
+          {showNotesModal && (() => {
+            const overlayStyle = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" };
+            const sheetStyle = { background: "#0d1526", borderRadius: "16px 16px 0 0", padding: "20px 20px 36px", width: "100%", maxWidth: 520, boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 12 };
+            return (
+              <div style={overlayStyle} onClick={() => setShowNotesModal(false)}>
+                <div style={sheetStyle} onClick={e => e.stopPropagation()}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontWeight: 800, fontSize: 16, color: "#e2e8f0" }}>📋 Site Notes</span>
+                    <button onClick={() => setShowNotesModal(false)} style={{ background: "#1e293b", border: "none", color: "#94a3b8", borderRadius: 8, width: 32, height: 32, cursor: "pointer", fontSize: 16 }}>✕</button>
+                  </div>
+                  <textarea autoFocus value={currentJob?.notes || ""} onChange={e => updateJobNotes(e.target.value)} placeholder="Add notes about this job…" style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 10, color: "#e2e8f0", fontSize: 14, padding: "12px 14px", resize: "none", outline: "none", lineHeight: 1.6, minHeight: 180, maxHeight: "50vh", overflowY: "auto", boxSizing: "border-box", width: "100%", fontFamily: "inherit" }} />
+                  <button onClick={() => setShowNotesModal(false)} style={{ background: "#2563eb", border: "none", borderRadius: 10, color: "#fff", fontSize: 15, fontWeight: 700, padding: "13px 0", cursor: "pointer" }}>Done</button>
+                </div>
+              </div>
+            );
+          })()}
+          {showMaterialPicker && (
+            <Modal title="Select & Order Materials" onClose={() => setShowMaterialPicker(false)} tall>
+              <p style={{ color: "#aaa", fontSize: 12, marginBottom: 8 }}>Changes apply to this job only.</p>
+              <div style={{ overflowY: "auto", flex: 1 }}>
+                {selectedMaterials.map((m, i) => (
+                  <div key={m} draggable onDragStart={() => setDragIndex(i)} onDragOver={(e) => { e.preventDefault(); setDragOverIndex(i); }}
+                    onDrop={() => { if (dragIndex === null || dragIndex === i) return; const next = [...selectedMaterials]; const [moved] = next.splice(dragIndex, 1); next.splice(i, 0, moved); setSelectedMaterials(next); setDragIndex(null); setDragOverIndex(null); }}
+                    onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
+                    style={{ ...styles.matToggle, background: "#2563eb22", borderColor: dragOverIndex === i ? "#60a5fa" : "#2563eb", display: "flex", alignItems: "center", cursor: "grab", opacity: dragIndex === i ? 0.4 : 1 }}>
+                    <span style={{ color: "#475569", fontSize: 16, marginRight: 8 }}>☰</span>
+                    <span style={{ color: "#60a5fa" }}>✓</span>
+                    <span style={{ color: "#e2e8f0", fontSize: 13, marginLeft: 8, flex: 1 }}>{m}</span>
+                    <button style={{ background: "none", border: "none", color: "#475569", fontSize: 18, cursor: "pointer", padding: "0 4px" }} onClick={(e) => { e.stopPropagation(); setSelectedMaterials(prev => prev.filter(x => x !== m)); }}>×</button>
+                  </div>
+                ))}
+                {MATERIALS.filter(m => !selectedMaterials.includes(m)).map((m) => (
+                  <button key={m} style={{ ...styles.matToggle, background: "#1a1a2e", borderColor: "#333" }} onClick={() => setSelectedMaterials(prev => [...prev, m])}>
+                    <span style={{ color: "#888" }}>○</span>
+                    <span style={{ color: "#aaa", fontSize: 13, marginLeft: 8 }}>{m}</span>
+                  </button>
+                ))}
+              </div>
+              <button style={styles.btnPrimary} onClick={() => setShowMaterialPicker(false)}>Done</button>
+            </Modal>
+          )}
+        </div>
+      );
+    }
+    // ── END TOWNHOME JOB SCREEN ─────────────────────────────────────────────
+
     const totalSheets = currentJob?.areas.reduce((s, a) => s + areaTotal(a), 0) || 0;
     const totalSqFt = currentJob?.areas.reduce((s, a) => s + areaSqFt(a, selectedMaterials), 0) || 0;
     return (
@@ -2217,17 +2733,23 @@ export default function TakeoffApp() {
             {currentJob?.jobNumber ? <div style={{ fontSize: 11, color: "#64748b" }}>#{currentJob.jobNumber}</div> : null}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
-            <div style={{ display: "flex", gap: 4 }}>
-              <button style={{ fontSize: 10, fontWeight: 700, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", whiteSpace: "nowrap", background: "#0e7490", color: "#fff" }} onClick={() => exportToCSV(false)}>EXPORT W/OUT PRICING</button>
-              <button style={{ fontSize: 10, fontWeight: 700, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", whiteSpace: "nowrap", background: "#2563eb", color: "#fff" }} onClick={() => exportToCSV(true)}>MPR EXPORT</button>
-            </div>
-            <div style={{ display: "flex", gap: 4, justifyContent: "flex-end", width: "100%" }}>
-              <button
-                style={{ fontSize: 10, fontWeight: 700, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", whiteSpace: "nowrap", background: "#16a34a", color: "#fff", width: "100%" }}
-                onClick={() => importOrderRef.current?.click()}
-              >⬆ IMPORT NEW PRICING</button>
-              <input ref={importOrderRef} type="file" accept=".csv" style={{ display: "none" }} onChange={importOrderPricing} />
-            </div>
+            {(currentJob?.type === "single" || currentJob?.type === "budget") ? (
+              <>
+                <div style={{ display: "flex", gap: 4 }}>
+                  <button style={{ fontSize: 10, fontWeight: 700, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", whiteSpace: "nowrap", background: "#0e7490", color: "#fff" }} onClick={() => exportToCSV(false)}>EXPORT W/OUT PRICING</button>
+                  <button style={{ fontSize: 10, fontWeight: 700, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", whiteSpace: "nowrap", background: "#2563eb", color: "#fff" }} onClick={() => exportToCSV(true)}>MPR EXPORT</button>
+                </div>
+                <div style={{ display: "flex", gap: 4, justifyContent: "flex-end", width: "100%" }}>
+                  <button
+                    style={{ fontSize: 10, fontWeight: 700, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", whiteSpace: "nowrap", background: "#16a34a", color: "#fff", width: "100%" }}
+                    onClick={() => importOrderRef.current?.click()}
+                  >⬆ IMPORT NEW PRICING</button>
+                  <input ref={importOrderRef} type="file" accept=".csv" style={{ display: "none" }} onChange={importOrderPricing} />
+                </div>
+              </>
+            ) : (
+              <button style={{ fontSize: 10, fontWeight: 700, padding: "5px 8px", borderRadius: 6, border: "none", cursor: "pointer", whiteSpace: "nowrap", background: "#0e7490", color: "#fff" }} onClick={() => exportToCSV(false)}>EXPORT ORDER</button>
+            )}
           </div>
         </div>
         <div style={{ ...styles.body, display: isLandscape ? "grid" : "block", gridTemplateColumns: isLandscape ? "1fr 1fr" : undefined, gap: isLandscape ? "0 24px" : undefined }}>
@@ -2275,18 +2797,63 @@ export default function TakeoffApp() {
             ))}
           </div>
 
-          {/* Site Notes */}
-          <div style={{ marginTop: 12 }}>
-            <div style={styles.sectionRow}>
-              <span style={styles.sectionLabel}>SITE NOTES</span>
+          {/* Site Notes + MPR Notes (single/budget only) */}
+          {(currentJob?.type === "single" || currentJob?.type === "budget") && (
+            <div style={{ marginTop: 12 }}>
+              <div style={styles.sectionRow}>
+                <span style={styles.sectionLabel}>INTERNAL SITE NOTES</span>
+              </div>
+              <button
+                onClick={() => setShowNotesModal(true)}
+                style={{ width: "100%", background: "#0d1a2a", border: "1px solid #1e293b", borderRadius: 10, padding: "10px 12px", textAlign: "left", cursor: "pointer", color: currentJob?.notes ? "#cbd5e1" : "#475569", fontSize: 13, lineHeight: 1.55, display: "block", maxHeight: 88, overflowY: "auto", boxSizing: "border-box", whiteSpace: "pre-wrap", wordBreak: "break-word", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+              >
+                {currentJob?.notes || "Tap to add internal site notes…"}
+              </button>
+              <div style={{ ...styles.sectionRow, marginTop: 10 }}>
+                <span style={styles.sectionLabel}>MPR NOTES</span>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={!!currentJob?.mprNotesEnabled}
+                    onChange={e => updateJobMprNotesEnabled(e.target.checked)}
+                    style={{ accentColor: "#2563eb", width: 15, height: 15 }}
+                  />
+                  <span style={{ fontSize: 11, color: "#64748b" }}>Include in MPR export</span>
+                </label>
+              </div>
+              <button
+                onClick={() => setShowMprNotesModal(true)}
+                style={{ width: "100%", background: "#0d1a2a", border: `1px solid ${currentJob?.mprNotesEnabled ? "#2563eb44" : "#1e293b"}`, borderRadius: 10, padding: "10px 12px", textAlign: "left", cursor: "pointer", fontSize: 13, lineHeight: 1.55, display: "block", maxHeight: 88, overflowY: "auto", boxSizing: "border-box", whiteSpace: "pre-wrap", wordBreak: "break-word", touchAction: "manipulation", WebkitTapHighlightColor: "transparent", opacity: currentJob?.mprNotesEnabled ? 1 : 0.5 }}
+              >
+                {(() => {
+                  const d = currentJob?.mprData || {};
+                  const lines = [
+                    d.access && `Access: ${d.access}`,
+                    d.builder && `Builder: ${d.builder}`,
+                    d.projectType && `Project: ${d.projectType}`,
+                    d.ceilings && `Ceilings: ${d.ceilings}`,
+                  ].filter(Boolean);
+                  return lines.length > 0
+                    ? lines.join("\n")
+                    : <span style={{ color: "#475569" }}>Tap to fill in MPR notes…</span>;
+                })()}
+              </button>
             </div>
-            <button
-              onClick={() => setShowNotesModal(true)}
-              style={{ width: "100%", background: "#0d1a2a", border: "1px solid #1e293b", borderRadius: 10, padding: "10px 12px", textAlign: "left", cursor: "pointer", color: currentJob?.notes ? "#cbd5e1" : "#475569", fontSize: 13, lineHeight: 1.55, display: "block", maxHeight: 88, overflowY: "auto", boxSizing: "border-box", whiteSpace: "pre-wrap", wordBreak: "break-word", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
-            >
-              {currentJob?.notes || "Tap to add site notes…"}
-            </button>
-          </div>
+          )}
+          {/* Site Notes for multi/townhome — internal only, no MPR notes */}
+          {(currentJob?.type === "multi") && (
+            <div style={{ marginTop: 12 }}>
+              <div style={styles.sectionRow}>
+                <span style={styles.sectionLabel}>SITE NOTES</span>
+              </div>
+              <button
+                onClick={() => setShowNotesModal(true)}
+                style={{ width: "100%", background: "#0d1a2a", border: "1px solid #1e293b", borderRadius: 10, padding: "10px 12px", textAlign: "left", cursor: "pointer", color: currentJob?.notes ? "#cbd5e1" : "#475569", fontSize: 13, lineHeight: 1.55, display: "block", maxHeight: 88, overflowY: "auto", boxSizing: "border-box", whiteSpace: "pre-wrap", wordBreak: "break-word", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+              >
+                {currentJob?.notes || "Tap to add site notes…"}
+              </button>
+            </div>
+          )}
           </div>{/* end left col */}
 
           <div>
@@ -2365,20 +2932,180 @@ export default function TakeoffApp() {
             <div style={overlayStyle} onClick={() => setShowNotesModal(false)}>
               <div style={sheetStyle} onClick={e => e.stopPropagation()}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontWeight: 800, fontSize: 16, color: "#e2e8f0" }}>📋 Site Notes</span>
+                  <span style={{ fontWeight: 800, fontSize: 16, color: "#e2e8f0" }}>📋 Internal Site Notes</span>
                   <button onClick={() => setShowNotesModal(false)} style={{ background: "#1e293b", border: "none", color: "#94a3b8", borderRadius: 8, width: 32, height: 32, cursor: "pointer", fontSize: 16, touchAction: "manipulation" }}>✕</button>
                 </div>
                 <textarea
                   autoFocus
                   value={currentJob?.notes || ""}
                   onChange={e => updateJobNotes(e.target.value)}
-                  placeholder="Add notes about this job — special conditions, site access, customer requests, material callouts…"
+                  placeholder="Add internal site notes — special conditions, site access, customer requests, material callouts…"
                   style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 10, color: "#e2e8f0", fontSize: 14, padding: "12px 14px", resize: "none", outline: "none", lineHeight: 1.6, minHeight: 180, maxHeight: "50vh", overflowY: "auto", boxSizing: "border-box", width: "100%", fontFamily: "inherit" }}
                 />
                 <button
                   onClick={() => setShowNotesModal(false)}
                   style={{ background: "#2563eb", border: "none", borderRadius: 10, color: "#fff", fontSize: 15, fontWeight: 700, padding: "13px 0", cursor: "pointer", touchAction: "manipulation" }}
                 >Done</button>
+              </div>
+            </div>
+          );
+        })()}
+
+        {showMprNotesModal && (() => {
+          const d = currentJob?.mprData || {};
+          const upd = (field, val) => updateMprField(field, val);
+          const overlayStyle = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" };
+          const sheetStyle = { background: "#0d1526", borderRadius: "16px 16px 0 0", padding: "20px 20px 0", width: "100%", maxWidth: 520, boxSizing: "border-box", display: "flex", flexDirection: "column", maxHeight: "92vh" };
+          const labelStyle = { fontSize: 10, fontWeight: 700, color: "#475569", letterSpacing: 1.2, marginBottom: 4, marginTop: 10 };
+          const inputStyle = { background: "#1e293b", border: "1px solid #334155", borderRadius: 8, color: "#e2e8f0", fontSize: 14, padding: "9px 12px", outline: "none", width: "100%", boxSizing: "border-box", fontFamily: "inherit" };
+          const selectStyle = { ...inputStyle, cursor: "pointer", appearance: "none", WebkitAppearance: "none" };
+          const sectionHeaderStyle = { fontSize: 11, fontWeight: 800, color: "#60a5fa", letterSpacing: 1.5, marginTop: 16, marginBottom: 4, paddingBottom: 4, borderBottom: "1px solid #1e293b" };
+
+          const windowOpts = [
+            { val: "", label: "— select —" },
+            { val: "A", label: "A) Wood returns, no drywall required" },
+            { val: "B", label: "B) Drywall returns with plastic J bead" },
+            { val: "C", label: "C) Drywall returns with tear-away bead" },
+            { val: "off", label: "N/A" },
+          ];
+          const closetOpts = [
+            { val: "", label: "— select —" },
+            { val: "A", label: "A) Swing doors" },
+            { val: "B", label: "B) Bifold doors" },
+            { val: "C", label: "C) Half-jambs" },
+            { val: "off", label: "N/A" },
+          ];
+          const underStairsOpts = [
+            { val: "", label: "— select —" },
+            { val: "A", label: "A) Boarded and finished" },
+            { val: "B", label: "B) Boarded only" },
+            { val: "C", label: "C) Boarded on exterior walls only" },
+            { val: "off", label: "N/A" },
+          ];
+          const mechOpts = [
+            { val: "", label: "— select —" },
+            { val: "A", label: "A) Boarded and finished" },
+            { val: "B", label: "B) Boarded and finished on accessible walls/ceilings only" },
+            { val: "off", label: "N/A" },
+          ];
+          const fireplaceOpts = [
+            { val: "", label: "— select —" },
+            { val: "A", label: "A) To be confirmed on site" },
+            { val: "B", label: "B) Full drywall finished with L-edge around flange" },
+            { val: "C", label: "C) Concrete board 16\" around flange – rest is drywall finish" },
+            { val: "D", label: "D) Full concrete board (No finishing)" },
+            { val: "off", label: "N/A" },
+          ];
+          const ceilingOpts = [
+            { val: "", label: "— select —" },
+            { val: "A", label: "A) Painted" },
+            { val: "B", label: "B) Textured" },
+            { val: "off", label: "N/A" },
+          ];
+          const projectTypeOpts = [
+            { val: "", label: "— select —" },
+            { val: "A", label: "A) New build" },
+            { val: "B", label: "B) Renovation" },
+            { val: "off", label: "N/A" },
+          ];
+
+          return (
+            <div style={overlayStyle} onClick={() => setShowMprNotesModal(false)}>
+              <div style={sheetStyle} onClick={e => e.stopPropagation()}>
+                {/* Fixed header */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexShrink: 0 }}>
+                  <span style={{ fontWeight: 800, fontSize: 16, color: "#e2e8f0" }}>📄 MPR Notes</span>
+                  <button onClick={() => setShowMprNotesModal(false)} style={{ background: "#1e293b", border: "none", color: "#94a3b8", borderRadius: 8, width: 32, height: 32, cursor: "pointer", fontSize: 16, touchAction: "manipulation" }}>✕</button>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#0d1a2a", borderRadius: 8, padding: "8px 12px", marginBottom: 4, flexShrink: 0 }}>
+                  <input type="checkbox" id="mprNotesEnabled2" checked={!!currentJob?.mprNotesEnabled} onChange={e => updateJobMprNotesEnabled(e.target.checked)} style={{ accentColor: "#2563eb", width: 15, height: 15 }} />
+                  <label htmlFor="mprNotesEnabled2" style={{ fontSize: 13, color: "#94a3b8", cursor: "pointer" }}>Include in MPR export</label>
+                </div>
+
+                {/* Scrollable body */}
+                <div style={{ overflowY: "auto", flex: 1, paddingBottom: 32 }}>
+
+                  {/* ACCESS INFO */}
+                  <div style={sectionHeaderStyle}>ACCESS INFORMATION</div>
+                  <div style={labelStyle}>ACCESS</div>
+                  <input style={inputStyle} placeholder="e.g. Side door, keypad entry" value={d.access || ""} onChange={e => upd("access", e.target.value)} />
+                  <div style={labelStyle}>GATE CODE</div>
+                  <input style={inputStyle} placeholder="" value={d.gateCode || ""} onChange={e => upd("gateCode", e.target.value)} />
+                  <div style={labelStyle}>KEY LOCATION</div>
+                  <input style={inputStyle} placeholder="" value={d.keyLocation || ""} onChange={e => upd("keyLocation", e.target.value)} />
+                  <div style={labelStyle}>KEY LOCKBOX CODE</div>
+                  <input style={inputStyle} placeholder="" value={d.lockboxCode || ""} onChange={e => upd("lockboxCode", e.target.value)} />
+                  <div style={labelStyle}>ALARM CODE</div>
+                  <input style={inputStyle} placeholder="" value={d.alarmCode || ""} onChange={e => upd("alarmCode", e.target.value)} />
+
+                  {/* CONTACTS */}
+                  <div style={sectionHeaderStyle}>CONTACTS</div>
+                  <div style={labelStyle}>BUILDER</div>
+                  <input style={inputStyle} placeholder="" value={d.builder || ""} onChange={e => upd("builder", e.target.value)} />
+                  <div style={labelStyle}>SITE CONTACT</div>
+                  <input style={inputStyle} placeholder="" value={d.siteContact || ""} onChange={e => upd("siteContact", e.target.value)} />
+                  <div style={labelStyle}>HOMEOWNER</div>
+                  <input style={inputStyle} placeholder="" value={d.homeowner || ""} onChange={e => upd("homeowner", e.target.value)} />
+                  <div style={labelStyle}>MACLEAN CONTACT / BILLING CONTACT</div>
+                  <input style={inputStyle} value={d.macleanContact !== undefined ? d.macleanContact : "John Smith – 604-613-1484 John.smith@mbdw.ca"} onChange={e => upd("macleanContact", e.target.value)} />
+
+                  {/* SITE INFORMATION */}
+                  <div style={sectionHeaderStyle}>SITE INFORMATION</div>
+
+                  <div style={labelStyle}>PROJECT TYPE</div>
+                  <select style={selectStyle} value={d.projectType || ""} onChange={e => upd("projectType", e.target.value)}>
+                    {projectTypeOpts.map(o => <option key={o.val} value={o.val}>{o.label}</option>)}
+                  </select>
+
+                  <div style={labelStyle}>WINDOWS</div>
+                  <select style={selectStyle} value={d.windows || ""} onChange={e => upd("windows", e.target.value)}>
+                    {windowOpts.map(o => <option key={o.val} value={o.val}>{o.label}</option>)}
+                  </select>
+                  {(d.windows === "B" || d.windows === "C") && (
+                    <div style={{ background: "#1c1a00", border: "1px solid #713f12", borderRadius: 8, padding: "8px 12px", marginTop: 6, fontSize: 12, color: "#fde68a", lineHeight: 1.5 }}>
+                      ⚠ If there are gaps between the drywall, plastic J, or drywall edge and the window frame, please fur out the return to bypass the gap. Fixed rate to be discussed.
+                    </div>
+                  )}
+
+                  <div style={labelStyle}>CLOSETS</div>
+                  <select style={selectStyle} value={d.closets || ""} onChange={e => upd("closets", e.target.value)}>
+                    {closetOpts.map(o => <option key={o.val} value={o.val}>{o.label}</option>)}
+                  </select>
+
+                  <div style={labelStyle}>UNDER STAIRS</div>
+                  <select style={selectStyle} value={d.underStairs || ""} onChange={e => upd("underStairs", e.target.value)}>
+                    {underStairsOpts.map(o => <option key={o.val} value={o.val}>{o.label}</option>)}
+                  </select>
+
+                  <div style={labelStyle}>MECH ROOM</div>
+                  <select style={selectStyle} value={d.mechRoom || ""} onChange={e => upd("mechRoom", e.target.value)}>
+                    {mechOpts.map(o => <option key={o.val} value={o.val}>{o.label}</option>)}
+                  </select>
+
+                  <div style={labelStyle}>FIREPLACE</div>
+                  <select style={selectStyle} value={d.fireplace || ""} onChange={e => upd("fireplace", e.target.value)}>
+                    {fireplaceOpts.map(o => <option key={o.val} value={o.val}>{o.label}</option>)}
+                  </select>
+
+                  <div style={labelStyle}>CEILINGS</div>
+                  <select style={selectStyle} value={d.ceilings || ""} onChange={e => upd("ceilings", e.target.value)}>
+                    {ceilingOpts.map(o => <option key={o.val} value={o.val}>{o.label}</option>)}
+                  </select>
+
+                  <div style={labelStyle}>ADDITIONAL NOTES</div>
+                  <textarea
+                    value={d.additionalNotes || ""}
+                    onChange={e => upd("additionalNotes", e.target.value)}
+                    placeholder="Any other site information…"
+                    style={{ ...inputStyle, resize: "none", minHeight: 80, lineHeight: 1.5 }}
+                  />
+
+                </div>{/* end scroll */}
+
+                {/* Fixed footer */}
+                <div style={{ flexShrink: 0, padding: "12px 0 24px" }}>
+                  <button onClick={() => setShowMprNotesModal(false)} style={{ background: "#2563eb", border: "none", borderRadius: 10, color: "#fff", fontSize: 15, fontWeight: 700, padding: "13px 0", cursor: "pointer", touchAction: "manipulation", width: "100%" }}>Done</button>
+                </div>
               </div>
             </div>
           );
@@ -2496,6 +3223,106 @@ Remove it anyway?`,
     );
   }
 
+  if (screen === "unit") {
+    const floors = currentUnit?.floors || [];
+    const unitIdx = (currentJob?.units || []).findIndex(u => u.id === currentUnitId);
+    const unitLabel = currentUnit?.name || `Unit ${unitIdx + 1}`;
+    const unitSheets = floors.reduce((s, f) => s + areaTotal(f), 0);
+    const unitSqft = floors.reduce((s, f) => s + areaSqFt(f, selectedMaterials), 0);
+    return (
+      <div style={{ ...styles.shell, maxWidth: isLandscape ? "100%" : 520 }}>
+        <div style={styles.header}>
+          <button style={styles.back} onClick={() => navigate("job")}>‹</button>
+          <div style={{ flex: 1 }}>
+            <div style={styles.headerTitle}>{unitLabel}</div>
+            {unitSheets > 0 && <div style={{ fontSize: 11, color: "#64748b" }}>{unitSheets} sheets · {unitSqft} ft²</div>}
+          </div>
+        </div>
+        <div style={styles.body}>
+          <div style={styles.sectionRow}>
+            <span style={styles.sectionLabel}>FLOORS</span>
+            <button style={styles.smallBtn} onClick={() => { window.history.pushState({ modal: "newFloor" }, "", ""); setShowNewAreaModal(true); }}>+ Add Floor</button>
+          </div>
+          <div style={styles.list}>
+            {floors.map((floor) => (
+              <div key={floor.id} style={styles.areaRow}>
+                {renamingFloorId === floor.id ? (
+                  <div style={{ flex: 1, display: "flex", gap: 6 }}>
+                    <input
+                      autoFocus
+                      style={{ ...styles.input, marginBottom: 0, flex: 1 }}
+                      value={renameFloorValue}
+                      onChange={(e) => setRenameFloorValue(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") renameFloor(floor.id, renameFloorValue); if (e.key === "Escape") setRenamingFloorId(null); }}
+                    />
+                    <button style={styles.accConfirmBtn} onClick={() => renameFloor(floor.id, renameFloorValue)}>✓</button>
+                    <button style={{ ...styles.accClearBtn, fontSize: 16 }} onClick={() => setRenamingFloorId(null)}>✕</button>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      style={styles.areaCard}
+                      onClick={() => { setCurrentFloorId(floor.id); cleanDisabledCells(currentJobId, floor.id); navigate("area"); }}
+                    >
+                      <div>
+                        <div style={styles.areaName}>{floor.name}</div>
+                        <div style={styles.areaMeta}>{areaTotal(floor)} sheets · {areaSqFt(floor, selectedMaterials)} ft²</div>
+                      </div>
+                      <span style={{ fontSize: 20 }}>›</span>
+                    </button>
+                    <button style={styles.renameAreaBtn} onClick={() => { setRenamingFloorId(floor.id); setRenameFloorValue(floor.name); }}>✏️</button>
+                    <button style={styles.renameAreaBtn} onClick={() => duplicateFloor(floor.id)}>⧉</button>
+                    {floorHasQuantities(floor)
+                      ? <button style={{ ...styles.deleteAreaBtn, color: "#334155", cursor: "not-allowed" }} title="Cannot delete — floor has quantities">🔒</button>
+                      : <button style={styles.deleteAreaBtn} onClick={() => { window.history.pushState({ modal: "deleteFloor" }, "", ""); setDeleteFloorId(floor.id); }}>🗑</button>
+                    }
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+          <button style={{ ...styles.accessoriesNav, marginTop: 16 }} onClick={() => navigate("accessories")}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>📦 Accessories & Supplies</div>
+              <div style={{ color: "#64748b", fontSize: 12, marginTop: 2 }}>
+                {(currentUnit?.accessories || []).filter(a => a.qty > 0 || (a.lines && a.lines.some(l => l.qty > 0))).length} items selected
+              </div>
+            </div>
+            <span style={{ fontSize: 20 }}>›</span>
+          </button>
+        </div>
+        {toast && <div style={styles.toast}>{toast}</div>}
+        {showNewAreaModal && (
+          <Modal title="New Floor" onClose={() => { setShowNewAreaModal(false); setNewAreaName(""); }}>
+            <input
+              autoFocus
+              style={styles.input}
+              placeholder="e.g. Upper Floor"
+              value={newAreaName}
+              onChange={(e) => setNewAreaName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && newAreaName.trim()) { addFloor(newAreaName); setNewAreaName(""); setShowNewAreaModal(false); } }}
+            />
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+              {["Upper Floor", "Main Floor", "Basement", "Garage", "Loft", "Bonus Room"].map(n => (
+                <button key={n} style={styles.presetBtn} onClick={() => setNewAreaName(n)}>{n}</button>
+              ))}
+            </div>
+            <button style={styles.btnPrimary} onClick={() => { if (newAreaName.trim()) { addFloor(newAreaName); setNewAreaName(""); setShowNewAreaModal(false); } }}>Add Floor</button>
+          </Modal>
+        )}
+        {deleteFloorId && (
+          <Modal title="Delete Floor?" onClose={() => setDeleteFloorId(null)}>
+            <p style={{ color: "#94a3b8", fontSize: 14 }}>This will permanently delete this floor and all its quantities. This cannot be undone.</p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={{ ...styles.btnPrimary, background: "#ef4444", flex: 1 }} onClick={() => deleteFloor(deleteFloorId)}>Delete</button>
+              <button style={{ ...styles.smallBtn, flex: 1, padding: "12px" }} onClick={() => setDeleteFloorId(null)}>Cancel</button>
+            </div>
+          </Modal>
+        )}
+      </div>
+    );
+  }
+
   if (screen === "area") {
     const matRows = selectedMaterials.length > 0 ? selectedMaterials : MATERIALS.slice(0, 6);
     const cellH = isLandscape ? 48 : 64;
@@ -2514,11 +3341,20 @@ Remove it anyway?`,
     return (
       <div style={{ ...styles.shell, maxWidth: "100%" }}>
         <div style={{ ...styles.header, padding: isLandscape ? "8px 16px" : "14px 16px" }}>
-          <button style={styles.back} onClick={() => navigate("job")}>‹</button>
-          <span style={{ ...styles.headerTitle, fontSize: isLandscape ? 14 : 16 }}>{currentArea?.name}</span>
+          <button style={styles.back} onClick={() => currentJob?.type === "townhome" ? navigate("unit") : navigate("job")}>‹</button>
+          <div style={{ flex: 1 }}>
+            <span style={{ ...styles.headerTitle, fontSize: isLandscape ? 14 : 16 }}>
+              {currentJob?.type === "townhome" ? currentFloor?.name : currentArea?.name}
+            </span>
+            {currentJob?.type === "townhome" && currentUnit && (
+              <div style={{ fontSize: 11, color: "#64748b" }}>
+                {currentUnit.name || `Unit ${(currentJob.units || []).findIndex(u => u.id === currentUnitId) + 1}`}
+              </div>
+            )}
+          </div>
           <div style={{ textAlign: "right" }}>
-            <div style={{ color: "#60a5fa", fontSize: isLandscape ? 11 : 13, fontWeight: 700 }}>{areaTotal(currentArea)} pcs</div>
-            <div style={{ color: "#34d399", fontSize: isLandscape ? 10 : 12 }}>{areaSqFt(currentArea, matRows)} ft²</div>
+            <div style={{ color: "#60a5fa", fontSize: isLandscape ? 11 : 13, fontWeight: 700 }}>{areaTotal(activeArea)} pcs</div>
+            <div style={{ color: "#34d399", fontSize: isLandscape ? 10 : 12 }}>{areaSqFt(activeArea, matRows)} ft²</div>
           </div>
         </div>
 
@@ -2545,7 +3381,7 @@ Remove it anyway?`,
                       <div style={{ fontSize: 8, color: "#64748b", lineHeight: 1.2, marginTop: 1 }}>{desc}</div>
                     </div>
                     {LENGTHS.map((len) => {
-                      const val = currentArea?.data[mat]?.[len] || 0;
+                      const val = activeArea?.data[mat]?.[len] || 0;
                       const disabled = isDisabledCell(mat, len);
                       return (
                         <button
@@ -2555,7 +3391,7 @@ Remove it anyway?`,
                           onPointerDown={(e) => !disabled && startLongPress(mat, len, e.clientX, e.clientY)}
                           onPointerUp={() => { cancelLongPress(); if (!disabled && !longPressFired.current) handleCellPress(mat, len); }}
                           onPointerCancel={() => cancelLongPress()}
-                          onContextMenu={(e) => { e.preventDefault(); if (!disabled) updateQty(mat, len, -1); }}
+                          onContextMenu={(e) => { e.preventDefault(); if (!disabled) (currentJob?.type === "townhome" ? updateQtyTownhome(mat, len, -1) : updateQty(mat, len, -1)); }}
                         >
                           {disabled ? "—" : val > 0 ? val : "·"}
                         </button>
@@ -2575,7 +3411,7 @@ Remove it anyway?`,
 
         {/* Bulk delete popup */}
         {bulkPopup && (() => {
-          const liveVal = currentArea?.data[bulkPopup.mat]?.[bulkPopup.len] || 0;
+          const liveVal = activeArea?.data[bulkPopup.mat]?.[bulkPopup.len] || 0;
           const popX = Math.min(Math.max(bulkPopup.x - 65, 10), window.innerWidth - 150);
           const popY = Math.max(bulkPopup.y - 180, 10);
           return (
@@ -3284,9 +4120,12 @@ Remove it anyway?`,
   }
 
   if (screen === "accessories") {
-    const areaNames = currentJob?.areas.map((a) => a.name) || [];
+    const isTownhomeAcc = currentJob?.type === "townhome";
+    const areaNames = isTownhomeAcc
+      ? (currentUnit?.floors || []).map(f => f.name)
+      : (currentJob?.areas.map((a) => a.name) || []);
 
-    // Mud, tape & screw auto-suggestion rates (single family only)
+    // Mud, tape & screw auto-suggestion rates
     const MUD_SUGGESTIONS = {
       "RPHBTP (DRYWALL TAPE 500')": 1200,
       "SYLLJT17 (SYNKO LITE JOINT MUD YELLOW)": 1800,
@@ -3294,12 +4133,13 @@ Remove it anyway?`,
       "DS114C (1 1/4\" COARSE DW SCREWS)": 8000,
     };
 
-    // Auto-populate suggested mud quantities for single family jobs
-    const jobTotalSqFt = currentJob?.areas.reduce((s, a) => s + areaSqFt(a, selectedMaterials), 0) || 0;
+    const jobTotalSqFt = isTownhomeAcc
+      ? (currentUnit?.floors || []).reduce((s, f) => s + areaSqFt(f, selectedMaterials), 0)
+      : (currentJob?.areas.reduce((s, a) => s + areaSqFt(a, selectedMaterials), 0) || 0);
 
     // Auto-repair: if job was created before accessories were added, initialize them now
-    const rawAccessories = currentJob?.accessories;
-    if (!rawAccessories || rawAccessories.length === 0) {
+    const rawAccessories = isTownhomeAcc ? currentUnit?.accessories : currentJob?.accessories;
+    if (!isTownhomeAcc && (!rawAccessories || rawAccessories.length === 0)) {
       setJobs((prev) =>
         prev.map((j) =>
           j.id !== currentJobId
@@ -3312,9 +4152,12 @@ Remove it anyway?`,
       ? rawAccessories
       : ALL_ACCESSORIES.map((p) => ({ product: p, qty: 0, placement: "" }));
 
-    // For single family jobs with sqft, compute suggested qtys
+    const accUpdate = isTownhomeAcc ? updateUnitAccessory : updateAccessory;
+    const accUpdateQty = isTownhomeAcc ? updateUnitAccessoryQty : updateAccessoryQty;
+
+    // For single family, budget, and townhome jobs with sqft, compute suggested qtys
     const getSuggestedQty = (product) => {
-      if ((currentJob?.type !== "single" && currentJob?.type !== "budget") || jobTotalSqFt === 0) return null;
+      if ((currentJob?.type !== "single" && currentJob?.type !== "budget" && currentJob?.type !== "townhome") || jobTotalSqFt === 0) return null;
       const rate = MUD_SUGGESTIONS[product];
       if (!rate) return null;
       return Math.ceil(jobTotalSqFt / rate);
@@ -3323,7 +4166,7 @@ Remove it anyway?`,
     return (
       <div ref={shellRef} style={{ ...styles.shell, maxWidth: isLandscape ? "100%" : 520 }}>
         <div style={{ ...styles.header, padding: isLandscape ? "8px 16px" : "14px 16px" }}>
-          <button style={styles.back} onClick={() => navigate("job")}>‹</button>
+          <button style={styles.back} onClick={() => navigate(isTownhomeAcc ? "unit" : "job")}>‹</button>
           <span style={styles.headerTitle}>Accessories & Supplies</span>
           <span style={{ color: "#60a5fa", fontSize: 12 }}>{accessories.filter(a => a.qty > 0 || (a.lines && a.lines.some(l => l.qty > 0))).length} items</span>
         </div>
@@ -3422,7 +4265,7 @@ Remove it anyway?`,
                             <select
                               style={{ ...styles.accSelect, color: entry.placement === "All Areas" ? "#f59e0b" : "#94a3b8" }}
                               value={entry.placement || "General"}
-                              onChange={(e) => updateAccessory(product, "placement", e.target.value)}
+                              onChange={(e) => accUpdate(product, "placement", e.target.value)}
                             >
                               <option value="General">General</option>
                               {areaNames.map((n) => <option key={n} value={n}>{n}</option>)}
@@ -3630,10 +4473,10 @@ Remove it anyway?`,
                       <div style={styles.accQtyRow}>
                         <button
                           style={{ ...styles.accQtyBtn, minWidth: 52, borderColor: isAutoSuggested ? "#f59e0b44" : undefined }}
-                          onPointerDown={() => { longPressTimer.current = setTimeout(() => updateAccessoryQty(product, -1), 500); }}
-                          onPointerUp={() => { cancelLongPress(); updateAccessoryQty(product, isAutoSuggested ? suggestedQty : 1); }}
+                          onPointerDown={() => { longPressTimer.current = setTimeout(() => accUpdateQty(product, -1), 500); }}
+                          onPointerUp={() => { cancelLongPress(); accUpdateQty(product, isAutoSuggested ? suggestedQty : 1); }}
                           onPointerLeave={cancelLongPress}
-                          onContextMenu={(e) => { e.preventDefault(); updateAccessoryQty(product, -1); }}
+                          onContextMenu={(e) => { e.preventDefault(); accUpdateQty(product, -1); }}
                         >
                           <span style={{ color: entry.qty > 0 ? "#60a5fa" : isAutoSuggested ? "#f59e0b" : "#475569", fontWeight: 900, fontSize: 18 }}>
                             {entry.qty > 0 ? entry.qty : isAutoSuggested ? suggestedQty : "·"}
@@ -3652,7 +4495,7 @@ Remove it anyway?`,
                               onKeyDown={(e) => {
                                 if (e.key === "Enter") {
                                   const v = parseInt(editingQtyValue, 10);
-                                  if (!isNaN(v)) updateAccessory(product, "qty", Math.max(0, v));
+                                  if (!isNaN(v)) accUpdate(product, "qty", Math.max(0, v));
                                   setEditingQtyProduct(null);
                                 }
                                 if (e.key === "Escape") setEditingQtyProduct(null);
@@ -3662,7 +4505,7 @@ Remove it anyway?`,
                               style={styles.accConfirmBtn}
                               onClick={() => {
                                 const v = parseInt(editingQtyValue, 10);
-                                if (!isNaN(v)) updateAccessory(product, "qty", Math.max(0, v));
+                                if (!isNaN(v)) accUpdate(product, "qty", Math.max(0, v));
                                 setEditingQtyProduct(null);
                               }}
                             >✓</button>
@@ -3675,14 +4518,14 @@ Remove it anyway?`,
                         )}
 
                         {entry.qty > 0 && !isEditingThis && (
-                          <button style={styles.accClearBtn} onClick={() => updateAccessory(product, "qty", 0)}>✕</button>
+                          <button style={styles.accClearBtn} onClick={() => accUpdate(product, "qty", 0)}>✕</button>
                         )}
                       </div>
                       {/* Placement dropdown */}
                       <select
                         style={{ ...styles.accSelect, color: entry.placement === "All Areas" ? "#f59e0b" : "#94a3b8" }}
                         value={entry.placement || "General"}
-                        onChange={(e) => updateAccessory(product, "placement", e.target.value)}
+                        onChange={(e) => accUpdate(product, "placement", e.target.value)}
                       >
                         <option value="General">General</option>
                         {areaNames.map((n) => <option key={n} value={n}>{n}</option>)}
@@ -3711,10 +4554,10 @@ Remove it anyway?`,
                       <div style={styles.accQtyRow}>
                         <button
                           style={{ ...styles.accQtyBtn, minWidth: 52 }}
-                          onPointerDown={() => { longPressTimer.current = setTimeout(() => updateAccessoryQty(product, -1), 500); }}
-                          onPointerUp={() => { cancelLongPress(); updateAccessoryQty(product, 1); }}
+                          onPointerDown={() => { longPressTimer.current = setTimeout(() => accUpdateQty(product, -1), 500); }}
+                          onPointerUp={() => { cancelLongPress(); accUpdateQty(product, 1); }}
                           onPointerLeave={cancelLongPress}
-                          onContextMenu={(e) => { e.preventDefault(); updateAccessoryQty(product, -1); }}
+                          onContextMenu={(e) => { e.preventDefault(); accUpdateQty(product, -1); }}
                         >
                           <span style={{ color: entry.qty > 0 ? "#60a5fa" : "#475569", fontWeight: 900, fontSize: 18 }}>
                             {entry.qty > 0 ? entry.qty : "·"}
@@ -3724,18 +4567,18 @@ Remove it anyway?`,
                           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                             <input autoFocus type="number" min="0" style={styles.accQtyInput} value={editingQtyValue}
                               onChange={(e) => setEditingQtyValue(e.target.value)}
-                              onKeyDown={(e) => { if (e.key === "Enter") { const v = parseInt(editingQtyValue, 10); if (!isNaN(v)) updateAccessory(product, "qty", Math.max(0, v)); setEditingQtyProduct(null); } if (e.key === "Escape") setEditingQtyProduct(null); }}
+                              onKeyDown={(e) => { if (e.key === "Enter") { const v = parseInt(editingQtyValue, 10); if (!isNaN(v)) accUpdate(product, "qty", Math.max(0, v)); setEditingQtyProduct(null); } if (e.key === "Escape") setEditingQtyProduct(null); }}
                             />
-                            <button style={styles.accConfirmBtn} onClick={() => { const v = parseInt(editingQtyValue, 10); if (!isNaN(v)) updateAccessory(product, "qty", Math.max(0, v)); setEditingQtyProduct(null); }}>✓</button>
+                            <button style={styles.accConfirmBtn} onClick={() => { const v = parseInt(editingQtyValue, 10); if (!isNaN(v)) accUpdate(product, "qty", Math.max(0, v)); setEditingQtyProduct(null); }}>✓</button>
                           </div>
                         ) : (
                           <button style={styles.accPencilBtn} onClick={() => { setEditingQtyProduct(product); setEditingQtyValue(String(entry.qty)); }}>✏️</button>
                         )}
                         {entry.qty > 0 && !isEditingThis && (
-                          <button style={styles.accClearBtn} onClick={() => updateAccessory(product, "qty", 0)}>✕</button>
+                          <button style={styles.accClearBtn} onClick={() => accUpdate(product, "qty", 0)}>✕</button>
                         )}
                       </div>
-                      <select style={{ ...styles.accSelect, color: entry.placement === "All Areas" ? "#f59e0b" : "#94a3b8" }} value={entry.placement || "General"} onChange={(e) => updateAccessory(product, "placement", e.target.value)}>
+                      <select style={{ ...styles.accSelect, color: entry.placement === "All Areas" ? "#f59e0b" : "#94a3b8" }} value={entry.placement || "General"} onChange={(e) => accUpdate(product, "placement", e.target.value)}>
                         <option value="General">General</option>
                         {areaNames.map((n) => <option key={n} value={n}>{n}</option>)}
                         <option value="All Areas">⚠️ All Areas</option>
@@ -3756,9 +4599,9 @@ Remove it anyway?`,
                 placeholder="e.g. SPECIAL COMPOUND"
                 value={newCustomAccessory}
                 onChange={(e) => setNewCustomAccessory(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addCustomAccessory()}
+                onKeyDown={(e) => { if (e.key === "Enter") { const val = newCustomAccessory.trim().toUpperCase(); if (!val) return; if (isTownhomeAcc) { setJobs(prev => prev.map(job => job.id !== currentJobId ? job : { ...job, units: job.units.map(u => u.id !== currentUnitId ? u : { ...u, accessories: [...(u.accessories || []), { product: val, qty: 0, placement: "General" }] }) })); setNewCustomAccessory(""); } else { addCustomAccessory(); } } }}
               />
-              <button style={{ ...styles.accConfirmBtn, padding: "8px 16px", fontSize: 18 }} onClick={addCustomAccessory}>＋</button>
+              <button style={{ ...styles.accConfirmBtn, padding: "8px 16px", fontSize: 18 }} onClick={() => { const val = newCustomAccessory.trim().toUpperCase(); if (!val) return; if (isTownhomeAcc) { setJobs(prev => prev.map(job => job.id !== currentJobId ? job : { ...job, units: job.units.map(u => u.id !== currentUnitId ? u : { ...u, accessories: [...(u.accessories || []), { product: val, qty: 0, placement: "General" }] }) })); setNewCustomAccessory(""); } else { addCustomAccessory(); } }}>＋</button>
             </div>
           </div>
 
@@ -3769,7 +4612,7 @@ Remove it anyway?`,
         {beadStickPopup && (() => {
           const popProduct = beadStickPopup.product;
           const popLen = beadStickPopup.len;
-          const popAcc = (currentJob?.accessories || []).find(a => a.product === popProduct);
+          const popAcc = (accessories || []).find(a => a.product === popProduct);
           const liveQty = popAcc?.lines?.find(l => l.length === popLen)?.qty || 0;
           const popX = Math.min(Math.max(beadStickPopup.x - 65, 10), window.innerWidth - 150);
           const popY = Math.max(beadStickPopup.y - 180, 10);
