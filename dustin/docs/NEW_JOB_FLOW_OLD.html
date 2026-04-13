@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>"New Job" Button Flow</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 0 24px;
+      color: #1a1a1a;
+      line-height: 1.6;
+    }
+    h1 { font-size: 1.8rem; border-bottom: 2px solid #e0e0e0; padding-bottom: 12px; }
+    h2 { font-size: 1.2rem; margin-top: 2rem; color: #333; }
+    h3 { font-size: 1rem; margin-top: 1.4rem; color: #555; }
+    code {
+      background: #eee;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.9em;
+    }
+    ul { padding-left: 1.4rem; }
+    li { margin-bottom: 6px; }
+    .step {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 1.5rem;
+    }
+    .step-number {
+      min-width: 36px;
+      height: 36px;
+      background: #1a1a1a;
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1rem;
+      margin-top: 2px;
+    }
+    .step-body { flex: 1; }
+    .step-body h2 { margin-top: 0; }
+    .type-grid {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 12px 0;
+    }
+    .type-btn {
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: 2px solid;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .type-single  { background: #e0f2fe; border-color: #38bdf8; color: #0369a1; }
+    .type-multi   { background: #ede9fe; border-color: #a78bfa; color: #7c3aed; }
+    .type-budget  { background: #d1fae5; border-color: #34d399; color: #065f46; }
+    .warning-box {
+      background: #fff7ed;
+      border: 1px solid #f97316;
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 12px 0;
+    }
+    .warning-box strong { color: #c2410c; }
+    .warning-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: default;
+    }
+    .btn-continue { background: #ea580c; color: #fff; }
+    .btn-add      { background: #1e40af; color: #fff; }
+    .init-list {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin: 12px 0;
+    }
+    .init-list li { margin-bottom: 4px; font-size: 0.95rem; }
+    .result-box {
+      background: #1a1a1a;
+      color: #fff;
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin-top: 1rem;
+      font-size: 0.95rem;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>"New Job" Button Flow</h1>
+
+  <div class="step">
+    <div class="step-number">1</div>
+    <div class="step-body">
+      <h2>Modal Opens</h2>
+      <p>A modal appears with the following sections:</p>
+
+      <h3>Job Type Selector</h3>
+      <div class="type-grid">
+        <div class="type-btn type-single">🏠 Single Family</div>
+        <div class="type-btn type-multi">🏢 Multifamily</div>
+        <div class="type-btn type-budget">💰 Budget Order</div>
+      </div>
+      <ul>
+        <li><strong>Single Family</strong> — preloads 5 areas: Upper Floor, Main Floor, Basement, Basement Suite, Garage</li>
+        <li><strong>Multifamily</strong> — preloads 6 areas: Unit 1–6 (renameable)</li>
+        <li><strong>Budget Order</strong> — same 5 areas as Single + a Pricing Matrix; hidden behind a lock button unless the budget password (<code>MBDW2025B</code>) has already been entered</li>
+      </ul>
+
+      <h3>Two Text Fields</h3>
+      <ul>
+        <li>Job name</li>
+        <li>Job number</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-number">2</div>
+    <div class="step-body">
+      <h2>Create Is Submitted</h2>
+      <p>When <strong>Create Job</strong> is tapped:</p>
+      <ul>
+        <li>If job name is empty → does nothing</li>
+        <li>If job number is empty → shows a warning:</li>
+      </ul>
+      <div class="warning-box">
+        <strong>⚠️ Please note that purchasing will not be able to price or process this order without a Job Number.</strong>
+        <div class="warning-actions">
+          <span class="btn btn-continue">Continue Without</span>
+          <span class="btn btn-add">Add Job Number</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-number">3</div>
+    <div class="step-body">
+      <h2>Job Is Created</h2>
+      <p>Once confirmed, <code>initJob()</code> runs which:</p>
+      <div class="init-list">
+        <ul>
+          <li>Generates a unique ID</li>
+          <li>Sets the job name, number, type, and contact</li>
+          <li>Pre-populates all areas with blank board-count data</li>
+          <li>Pre-loads all accessories with qty = 0</li>
+          <li>Sets the default selected materials</li>
+          <li><em>Budget jobs only:</em> attaches a full <code>budgetPricing</code> object with default labour rates</li>
+        </ul>
+      </div>
+      <div class="result-box">
+        The new job is <strong>prepended to the top of the job list</strong>, the modal closes, and the app immediately navigates to the <strong>Job screen</strong> for that new job.
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

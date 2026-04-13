@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Export Buttons</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 820px;
+      margin: 40px auto;
+      padding: 0 24px;
+      color: #1a1a1a;
+      line-height: 1.6;
+    }
+    h1 { font-size: 1.8rem; border-bottom: 2px solid #e0e0e0; padding-bottom: 12px; }
+    h2 { font-size: 1.2rem; margin-top: 2.2rem; color: #333; }
+    code {
+      background: #eee;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.88em;
+      font-family: "SFMono-Regular", Consolas, monospace;
+    }
+    .intro {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 0.95rem;
+      color: #475569;
+      margin-bottom: 2rem;
+    }
+    .export-card {
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 2rem;
+    }
+    .card-noPricing {
+      background: #ecfeff;
+      border: 1px solid #67e8f9;
+    }
+    .card-mpr {
+      background: #eff6ff;
+      border: 1px solid #93c5fd;
+    }
+    .btn-demo {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 5px 10px;
+      border-radius: 6px;
+      margin-bottom: 14px;
+      letter-spacing: 0.03em;
+    }
+    .btn-noPricing { background: #0e7490; color: #fff; }
+    .btn-mpr       { background: #2563eb; color: #fff; }
+    .filename {
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.85rem;
+      background: #1e293b;
+      color: #7dd3fc;
+      border-radius: 6px;
+      padding: 6px 12px;
+      display: inline-block;
+      margin-bottom: 14px;
+    }
+    .purpose {
+      font-size: 0.95rem;
+      margin-bottom: 14px;
+    }
+    ul {
+      padding-left: 1.3rem;
+      margin: 0;
+    }
+    li { margin-bottom: 6px; font-size: 0.95rem; }
+    .tag {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 1px 7px;
+      border-radius: 4px;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+    .tag-fill  { background: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
+    .tag-no    { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .tag-yes   { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    .share-note {
+      margin-top: 2rem;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 0.9rem;
+      color: #475569;
+    }
+    .share-note strong { color: #1a1a1a; }
+    hr { border: none; border-top: 1px solid #e0e0e0; margin: 2rem 0; }
+  </style>
+</head>
+<body>
+
+  <h1>Export Buttons</h1>
+
+  <div class="intro">
+    Both buttons call the same <code>exportToCSV</code> function. The difference is whether pricing data is included in the output.
+  </div>
+
+  <!-- Export w/out Pricing -->
+  <div class="export-card card-noPricing">
+    <div class="btn-demo btn-noPricing">EXPORT W/OUT PRICING</div><br>
+    <div class="filename">&lt;JobName&gt;_order_for_pricing.csv</div>
+    <div class="purpose">
+      Intended to be <strong>sent to purchasing / supplier</strong> to fill in prices, then imported back into the app.
+    </div>
+    <ul>
+      <li>
+        <strong>Pricing Sheet</strong> — one row per material with a blank
+        <code>$/SQ FT &lt;&lt; FILL IN</code> column
+        <span class="tag tag-fill">FILL IN</span>
+      </li>
+      <li>
+        <strong>Accessory Pricing</strong> — one row per accessory with a blank
+        <code>Unit Price &lt;&lt; FILL IN</code> column
+        <span class="tag tag-fill">FILL IN</span>
+      </li>
+      <li>
+        <strong>Order Details</strong> — board counts per area, sheet totals, sq ft
+        <span class="tag tag-no">NO PRICES</span>
+      </li>
+      <li>
+        <strong>Accessories List</strong> — product, qty, placement
+        <span class="tag tag-no">NO PRICES</span>
+      </li>
+    </ul>
+  </div>
+
+  <hr>
+
+  <!-- MPR Export -->
+  <div class="export-card card-mpr">
+    <div class="btn-demo btn-mpr">MPR EXPORT</div><br>
+    <div class="filename">&lt;JobName&gt;_MPR.csv</div>
+    <div class="purpose">
+      An <strong>internal pricing report</strong> (MPR = Material Purchase Report). Includes everything in the other export, plus full costing.
+    </div>
+    <ul>
+      <li>
+        Per-material <strong>$/sq ft</strong> and <strong>total cost</strong> for every area
+        <span class="tag tag-yes">WITH PRICES</span>
+      </li>
+      <li>
+        Accessories with <strong>unit prices and line totals</strong>
+        <span class="tag tag-yes">WITH PRICES</span>
+      </li>
+      <li><strong>Cartage</strong> calculation</li>
+      <li><strong>Total Material Cost</strong> (boards + accessories + cartage)</li>
+      <li>
+        Full <strong>Labour Budget</strong> section:
+        boarding, taping, beading, scrap, drives, management, warranty, scaffold
+      </li>
+      <li><strong>Overhead %</strong> and <strong>Profit %</strong> applied on top of material + labour</li>
+      <li>Site notes (if any)</li>
+    </ul>
+  </div>
+
+  <div class="share-note">
+    <strong>On mobile:</strong> both buttons use the <strong>Web Share API</strong> (native share sheet on Android/iOS).<br>
+    <strong>On desktop:</strong> falls back to a standard file download.
+  </div>
+
+</body>
+</html>

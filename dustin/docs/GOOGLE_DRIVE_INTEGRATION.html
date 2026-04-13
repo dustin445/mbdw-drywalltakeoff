@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Google Drive Integration</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 820px;
+      margin: 40px auto;
+      padding: 0 24px;
+      color: #1a1a1a;
+      line-height: 1.6;
+    }
+    h1 { font-size: 1.8rem; border-bottom: 2px solid #e0e0e0; padding-bottom: 12px; }
+    h2 { font-size: 1.2rem; margin-top: 2rem; color: #333; }
+    h3 { font-size: 1rem; margin-top: 1.4rem; color: #555; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+    }
+    th {
+      background: #333;
+      color: #fff;
+      text-align: left;
+      padding: 8px 12px;
+    }
+    td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #e0e0e0;
+      vertical-align: top;
+    }
+    tr:nth-child(even) td { background: #fafafa; }
+    code {
+      background: #eee;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.88em;
+      font-family: "SFMono-Regular", Consolas, monospace;
+    }
+    pre {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 16px 20px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+    pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+    .flow {
+      counter-reset: flow-counter;
+      list-style: none;
+      padding: 0;
+      margin: 1rem 0;
+    }
+    .flow > li {
+      counter-increment: flow-counter;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      margin-bottom: 14px;
+    }
+    .flow > li::before {
+      content: counter(flow-counter);
+      min-width: 30px;
+      height: 30px;
+      background: #1a1a1a;
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.9rem;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .flow > li > div ul { margin: 6px 0 0; padding-left: 1.2rem; }
+    .flow > li > div ul li { margin-bottom: 4px; }
+    .toast-success {
+      display: inline-block;
+      background: #dcfce7;
+      border: 1px solid #86efac;
+      color: #166534;
+      border-radius: 6px;
+      padding: 2px 10px;
+      font-size: 0.88rem;
+      font-weight: 600;
+    }
+    .sheet-cols {
+      font-size: 0.85rem;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-top: 8px;
+      font-family: "SFMono-Regular", Consolas, monospace;
+    }
+    .sheet-cols span {
+      display: inline-block;
+      background: #334155;
+      color: #e2e8f0;
+      border-radius: 4px;
+      padding: 1px 6px;
+      margin: 2px 4px 2px 0;
+    }
+    /* Retry modal */
+    .retry-section {
+      background: #0d1526;
+      border: 1px solid #ef4444;
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin: 1rem 0;
+      color: #e2e8f0;
+    }
+    .retry-section h3 { color: #fca5a5; margin: 0 0 12px; font-size: 1rem; display: flex; align-items: center; gap: 8px; }
+    .retry-section ul { margin: 0; padding-left: 1.2rem; color: #94a3b8; font-size: 0.95rem; }
+    .retry-section ul li { margin-bottom: 6px; }
+    .retry-section ul li strong { color: #e2e8f0; }
+    .retry-btn-demo {
+      display: inline-block;
+      margin-top: 14px;
+      background: #1d4ed8;
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.9rem;
+      padding: 10px 28px;
+      border-radius: 8px;
+      cursor: default;
+    }
+    /* Save to Google button section */
+    .save-section {
+      background: #eef2ff;
+      border: 1px solid #a5b4fc;
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin: 1rem 0;
+    }
+    .save-section h3 { margin: 0 0 12px; color: #3730a3; font-size: 1rem; }
+    .save-btn-demo {
+      display: inline-block;
+      background: #4f46e5;
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.75rem;
+      padding: 5px 10px;
+      border-radius: 6px;
+      cursor: default;
+      margin-bottom: 14px;
+      letter-spacing: 0.03em;
+    }
+    .save-section ul { margin: 0; padding-left: 1.2rem; font-size: 0.95rem; }
+    .save-section ul li { margin-bottom: 6px; }
+    .filename-demo {
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.85rem;
+      background: #1e293b;
+      color: #7dd3fc;
+      border-radius: 6px;
+      padding: 6px 12px;
+      display: inline-block;
+      margin: 8px 0;
+    }
+    /* Recompile note */
+    .recompile-box {
+      background: #f0fdf4;
+      border: 1px solid #86efac;
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin: 1rem 0;
+    }
+    /* Config box */
+    .config-box {
+      background: #fefce8;
+      border: 1px solid #fde047;
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin: 1rem 0;
+    }
+    .config-box h3 { margin: 0 0 10px; font-size: 1rem; color: #713f12; }
+    .checklist { list-style: none; padding: 0; margin: 0.5rem 0; }
+    .checklist li {
+      padding: 6px 0;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .checklist li:last-child { border-bottom: none; }
+    .checklist li::before { content: "☐"; font-size: 1.1rem; color: #6b7280; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+
+  <h1>Google Drive Integration</h1>
+
+  <h2>What Was Changed</h2>
+  <table>
+    <thead>
+      <tr><th>File</th><th>Change</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>dustin/src/googleApi.js</code></td>
+        <td>New module — token auth, Drive folder creation, Sheets logging, file upload</td>
+      </tr>
+      <tr>
+        <td><code>dustin/index.html</code></td>
+        <td>Added Google Identity Services <code>&lt;script&gt;</code> tag</td>
+      </tr>
+      <tr>
+        <td><code>dustin/src/App.jsx</code></td>
+        <td>Import, <code>driveFolder: null</code> on job, <code>createJob</code> made async, retry modal, Save to Google button</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Duplicate Folder Prevention</h2>
+  <div style="background:#f0f9ff;border:1px solid #7dd3fc;border-radius:8px;padding:16px 20px;margin:1rem 0;">
+    <p style="margin:0 0 10px;font-size:0.95rem;"><code>createDriveFolder</code> checks for an existing folder before creating one. On every call it:</p>
+    <ol style="margin:0;padding-left:1.4rem;font-size:0.95rem;">
+      <li style="margin-bottom:6px;">Queries Drive for a folder matching the exact name inside the parent (excluding trashed items)</li>
+      <li style="margin-bottom:6px;">If found → returns the existing folder's ID and URL — <strong>no new folder is created</strong></li>
+      <li style="margin-bottom:6px;">If not found → creates the folder as normal</li>
+    </ol>
+    <p style="margin:12px 0 0;font-size:0.88rem;color:#475569;">
+      Since the folder name is <code>"&lt;Job Name&gt; __ &lt;Job ID&gt;"</code> and the job ID is a random string unique to each job,
+      false matches against other jobs are not possible. The only time a match is found is during a genuine retry of the same job.
+    </p>
+  </div>
+
+  <h2>How It Works</h2>
+  <ol class="flow">
+    <li><div><code>createJob</code> creates the job and navigates immediately — the UI is never blocked.</div></li>
+    <li>
+      <div>
+        In the background, <code>provisionJob(job)</code> is called:
+        <ul>
+          <li>Authenticates the user via a Google OAuth popup (first time only)</li>
+          <li>Creates a Drive sub-folder named <code>"&lt;Job Name&gt; __ &lt;Job ID&gt;"</code> inside your parent folder</li>
+          <li>
+            Appends a row to your spreadsheet:
+            <div class="sheet-cols">
+              <span>Timestamp</span><span>Job Name</span><span>Job Number</span><span>Job ID</span><span>Folder Name</span><span>Folder ID</span><span>Folder URL</span>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </li>
+    <li><div>On success → toast <span class="toast-success">Google Drive folder created</span>; folder info is saved to the job object in localStorage.</div></li>
+    <li><div>On failure → a <strong>required retry modal</strong> appears (see below).</div></li>
+  </ol>
+
+  <h2>Failure — Retry Modal</h2>
+  <p>Creating a Google Drive folder is a <strong>required step</strong>. If provisioning fails:</p>
+  <div class="retry-section">
+    <h3>⚠️ Google Drive Folder Not Created</h3>
+    <ul>
+      <li>A full-screen modal with a red border appears — it <strong>cannot be dismissed</strong> by tapping outside</li>
+      <li>Shows the attempted folder name so the user knows what it tried to create</li>
+      <li>A <strong>Retry</strong> button re-attempts <code>provisionJob</code> with the same job</li>
+      <li>While retrying, the button shows <strong>"Retrying…"</strong> and is disabled</li>
+      <li>On success: modal closes, job is updated with folder info, success toast appears</li>
+      <li>On continued failure: modal stays open — the user must keep retrying or fix the underlying issue (auth, connectivity)</li>
+    </ul>
+    <div class="retry-btn-demo">Retry</div>
+  </div>
+
+  <h2>☁ Save to Google Button</h2>
+  <div class="save-section">
+    <div class="save-btn-demo">☁ SAVE TO GOOGLE</div>
+    <p style="margin:0 0 12px;font-size:0.95rem;">Located in the job screen header, below <strong>Import New Pricing</strong> — full width, indigo colour.</p>
+
+    <h3>What happens when pressed</h3>
+    <ol style="padding-left:1.2rem;margin:0 0 14px;font-size:0.95rem;">
+      <li style="margin-bottom:6px;">Checks the current job has a linked Drive folder (set during <code>createJob</code>). If not → toast error.</li>
+      <li style="margin-bottom:6px;">Serializes the full current job to JSON</li>
+      <li style="margin-bottom:6px;">Uploads it to the job's Drive folder via multipart upload</li>
+      <li style="margin-bottom:6px;">On success → toast: <span class="toast-success">file saved to google folder: &lt;Folder Name&gt;</span></li>
+      <li style="margin-bottom:6px;">On failure → toast error + console log</li>
+    </ol>
+
+    <h3>Filename saved</h3>
+    <div class="filename-demo">&lt;Job_Name&gt;_&lt;YYYY-MM-DD_HH-MM&gt;.json</div>
+    <div style="margin-top:6px;font-size:0.88rem;color:#475569;">
+      <strong>Example:</strong> <code>4_Meadow_Lane_2026-04-13_14-35.json</code>
+    </div>
+    <p style="margin:8px 0 0;font-size:0.88rem;color:#475569;">
+      Every save is unique to the minute — no duplicate checking needed, and a full history of snapshots is preserved in the Drive folder.
+    </p>
+  </div>
+
+  <h2>Do I Need to Recompile After Filling In the Values?</h2>
+  <div class="recompile-box">
+    <strong style="color:#166534;">No.</strong> The values in <code>googleApi.js</code> are plain JavaScript read at runtime — not environment variables or build-time constants. No recompile is needed.
+    <ol style="margin:12px 0 0;padding-left:1.4rem;color:#1a1a1a;">
+      <li style="margin-bottom:6px;">Fill in the 3 values in <code>googleApi.js</code></li>
+      <li style="margin-bottom:6px;">Run <code>npm run dev</code> in the <code>dustin/</code> folder</li>
+      <li style="margin-bottom:6px;">Open the app in your browser — it works immediately</li>
+    </ol>
+    <div style="margin-top:10px;font-size:0.88rem;color:#6b7280;">The only time a rebuild is needed is if you add a new import or change JSX structure.</div>
+  </div>
+
+  <h2>Before It Will Work — Fill In 3 Values in <code>googleApi.js</code></h2>
+  <pre><code>CLIENT_ID:        "YOUR_OAUTH2_CLIENT_ID.apps.googleusercontent.com"
+PARENT_FOLDER_ID: "YOUR_PARENT_FOLDER_ID"
+SPREADSHEET_ID:   "YOUR_SPREADSHEET_ID"</code></pre>
+
+  <h2>Google Cloud Console Setup</h2>
+  <div class="config-box">
+    <h3>Complete these steps once in Google Cloud Console</h3>
+    <ul class="checklist">
+      <li>Enable <strong>Google Drive API</strong></li>
+      <li>Enable <strong>Google Sheets API</strong></li>
+      <li>Create an <strong>OAuth 2.0 Client ID</strong> — type: <em>Web application</em></li>
+      <li>Add your dev URL (e.g. <code>http://localhost:5173</code>) to <strong>Authorized JavaScript origins</strong></li>
+      <li>Copy the Client ID into <code>GOOGLE_CONFIG.CLIENT_ID</code> in <code>googleApi.js</code></li>
+    </ul>
+  </div>
+
+</body>
+</html>
