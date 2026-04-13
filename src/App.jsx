@@ -3387,7 +3387,7 @@ Remove it anyway?`,
                         <button
                           key={len}
                           disabled={disabled}
-                          style={{ ...styles.cell, width: cellW, minWidth: cellW, height: cellH, fontSize: cellFontSize, background: disabled ? "#0a0f1e" : val > 0 ? "#1e3a5f" : "#1e293b", color: disabled ? "#1e293b" : val > 0 ? "#f1f5f9" : "#475569", cursor: disabled ? "not-allowed" : "pointer" }}
+                          style={{ ...styles.cell, width: cellW, minWidth: cellW, height: cellH, fontSize: cellFontSize, background: disabled ? "#0a0f1e" : val > 0 ? "#1e3a5f" : "#1e293b", color: disabled ? "#1e293b" : val > 0 ? "#60a5fa" : "#475569", cursor: disabled ? "not-allowed" : "pointer" }}
                           onPointerDown={(e) => !disabled && startLongPress(mat, len, e.clientX, e.clientY)}
                           onPointerUp={() => { cancelLongPress(); if (!disabled && !longPressFired.current) handleCellPress(mat, len); }}
                           onPointerCancel={() => cancelLongPress()}
