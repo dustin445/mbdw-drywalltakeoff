@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MBDW Takeoff — Change Log</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { background: #0a0f1e; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 32px 24px 60px; max-width: 780px; }
+
+    /* Page header */
+    .page-title { font-size: 22px; font-weight: 800; color: #f1f5f9; margin: 0 0 4px; }
+    .page-sub   { font-size: 13px; color: #475569; margin: 0 0 40px; }
+
+    /* TOC */
+    .toc { background: #0d1526; border: 1px solid #1e293b; border-radius: 12px; padding: 16px 20px; margin-bottom: 40px; }
+    .toc-title { font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; }
+    .toc ol { margin: 0; padding-left: 20px; }
+    .toc li { margin-bottom: 4px; }
+    .toc a { font-size: 13px; color: #7dd3fc; text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .toc .toc-date { color: #475569; font-size: 12px; margin-left: 6px; }
+
+    /* Entry */
+    .entry { margin-bottom: 56px; }
+    .entry-header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; padding-bottom: 10px; border-bottom: 1px solid #1e293b; }
+    .entry-date { font-size: 18px; font-weight: 800; color: #f1f5f9; }
+    .entry-branch { font-size: 12px; color: #475569; }
+
+    h3 { font-size: 13px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; margin: 24px 0 10px; }
+    h4 { font-size: 14px; font-weight: 700; color: #cbd5e1; margin: 16px 0 6px; }
+    p, li { font-size: 14px; color: #94a3b8; line-height: 1.6; margin: 0 0 6px; }
+    ul, ol { padding-left: 20px; margin: 6px 0 12px; }
+    li { margin-bottom: 4px; }
+    code { background: #1e293b; color: #7dd3fc; padding: 2px 6px; border-radius: 4px; font-size: 13px; font-family: 'Courier New', monospace; }
+
+    .card { background: #0d1526; border-radius: 10px; padding: 16px 20px; margin-bottom: 12px; border: 1px solid #1e293b; }
+    .file-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 700; margin-bottom: 8px; font-family: 'Courier New', monospace; }
+    .tag-new     { background: #14532d; color: #86efac; }
+    .tag-changed { background: #1e3a5f; color: #7dd3fc; }
+
+    /* How to run — always at bottom */
+    .run-section { background: #0d1526; border-radius: 10px; padding: 16px 20px; border: 1px solid #1e293b; margin-top: 48px; }
+    .run-title { font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+
+  <h1 class="page-title">MBDW Takeoff — Change Log</h1>
+  <p class="page-sub">mbdw-drywalltakeoff/dustin &nbsp;·&nbsp; branch: main &nbsp;·&nbsp; newest changes first</p>
+
+  <!-- ─── TABLE OF CONTENTS ─────────────────────────────────── -->
+  <div class="toc">
+    <div class="toc-title">Sessions</div>
+    <ol reversed>
+      <li><a href="#2026-04-28">Google Drive integration + build setup restored<span class="toc-date">2026-04-28</span></a></li>
+    </ol>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════
+       SESSION: 2026-04-28
+       ════════════════════════════════════════════════════════════ -->
+  <div class="entry" id="2026-04-28">
+    <div class="entry-header">
+      <span class="entry-date">2026-04-28</span>
+      <span class="entry-branch">branch: main</span>
+    </div>
+
+    <p>Changes in this session:</p>
+    <ol>
+      <li><strong>Build setup restored</strong> — config files had been deleted; recreated so the app can be developed and rebuilt from source.</li>
+      <li><strong>Google Drive integration restored</strong> — ported back from <code>_archive/dustin_v2_google_drive_integration</code>.</li>
+      <li><strong>Footer added to all screens</strong> — <strong>Changes</strong> and <strong>Info</strong> links visible on every screen.</li>
+      <li><strong>EXIT button added</strong> — home screen header; returns to password screen without clearing localStorage.</li>
+      <li><strong>Documentation files added</strong> — <code>change_log.html</code> (this file) and <code>app_info.html</code> (feature guides) in <code>public/</code>.</li>
+    </ol>
+
+    <h3>Build Setup</h3>
+
+    <div class="card">
+      <div class="file-tag tag-new">NEW &nbsp; package.json</div>
+      <p>Defines npm scripts: <code>dev</code>, <code>build</code>, <code>preview</code>.</p>
+    </div>
+    <div class="card">
+      <div class="file-tag tag-new">NEW &nbsp; vite.config.js</div>
+      <p>Minimal Vite config with <code>@vitejs/plugin-react</code>.</p>
+    </div>
+    <div class="card">
+      <div class="file-tag tag-new">NEW &nbsp; index.html</div>
+      <p>Root Vite entry point. Includes the Google Identity Services <code>&lt;script&gt;</code> tag required for OAuth 2.0.</p>
+    </div>
+    <div class="card">
+      <div class="file-tag tag-new">NEW &nbsp; main.jsx</div>
+      <p>React entry point — renders <code>&lt;TakeoffApp /&gt;</code> into <code>#root</code>.</p>
+    </div>
+
+    <h3>Google Drive Integration</h3>
+
+    <div class="card">
+      <div class="file-tag tag-new">NEW &nbsp; googleApi.js</div>
+      <p>Self-contained module. Exports:</p>
+      <ul>
+        <li><code>getAccessToken()</code> — OAuth 2.0 via Google Identity Services; token is cached</li>
+        <li><code>createDriveFolder(name)</code> — creates a sub-folder in <code>PARENT_FOLDER_ID</code>; duplicate-safe</li>
+        <li><code>logToSpreadsheet({...})</code> — appends a row: <em>Timestamp | Job Name | Job # | Job ID | Folder Name | Folder ID | Folder URL</em></li>
+        <li><code>uploadFileToDrive(folderId, filename, content)</code> — multipart JSON upload</li>
+        <li><code>provisionJob(job)</code> — orchestrates folder creation + sheet logging</li>
+      </ul>
+      <p>Credentials live in <code>GOOGLE_CONFIG</code> at the top of the file. No rebuild needed to update them.</p>
+    </div>
+
+    <div class="card">
+      <div class="file-tag tag-changed">CHANGED &nbsp; app.jsx</div>
+      <h4>Import</h4>
+      <p><code>import { provisionJob, uploadFileToDrive } from "./googleApi.js";</code></p>
+      <h4>initJob — driveFolder field</h4>
+      <p>Every new job object now includes <code>driveFolder: null</code>, populated with <code>{ folderId, folderUrl, folderName }</code> after provisioning.</p>
+      <h4>New state: driveFailedJob, driveRetrying</h4>
+      <p><code>driveFailedJob</code> holds the job if provisioning failed and drives the retry modal. <code>driveRetrying</code> disables the Retry button while in flight.</p>
+      <h4>createJob — async + Drive provisioning</h4>
+      <p>Made <code>async</code>. After navigating (so UI is never blocked), calls <code>provisionJob</code> in the background. Success → toast. Failure → retry modal.</p>
+      <h4>retryDriveProvisioning()</h4>
+      <p>Re-attempts provisioning for the failed job. Keeps modal open until it succeeds.</p>
+      <h4>handleSaveToGoogle()</h4>
+      <p>Serializes the current job to JSON and uploads it to its Drive folder. Filename: <code>Job_Name_YYYY-MM-DD_HH-MM.json</code>. Every save is a new timestamped snapshot.</p>
+      <h4>☁ SAVE TO GOOGLE button</h4>
+      <p>Added below <strong>⬆ IMPORT NEW PRICING</strong> in the job screen header. Full-width, indigo.</p>
+      <h4>Drive failure retry modal</h4>
+      <p>Full-screen, red-bordered. Cannot be dismissed — user must retry or fix connectivity.</p>
+    </div>
+
+    <h3>Footer — All Screens</h3>
+
+    <div class="card">
+      <div class="file-tag tag-changed">CHANGED &nbsp; app.jsx</div>
+      <p>A shared <code>appFooter</code> element is defined once and rendered at the bottom of every screen (login, home, job, unit, area, budget, accessories, pricing). Contains two links:</p>
+      <ul>
+        <li><strong>Changes</strong> → <code>/change_log.html</code></li>
+        <li><strong>Info</strong> → <code>/app_info.html</code></li>
+      </ul>
+    </div>
+
+    <h3>EXIT Button</h3>
+
+    <div class="card">
+      <div class="file-tag tag-changed">CHANGED &nbsp; app.jsx</div>
+      <p>Added to the home screen header (top right, beside ⚙️). Calls <code>setIsUnlocked(false)</code> — returns to the password screen for the current session without clearing <code>localStorage</code>. Next page load will auto-login as before.</p>
+    </div>
+
+    <h3>Documentation Files</h3>
+
+    <div class="card">
+      <div class="file-tag tag-new">NEW &nbsp; public/change_log.html</div>
+      <p>This file. Dated session entries, newest first, with a TOC. Future sessions prepend a new entry.</p>
+    </div>
+    <div class="card">
+      <div class="file-tag tag-new">NEW &nbsp; public/app_info.html</div>
+      <p>Feature guides. TOC-driven, one entry per feature. Linked from the footer as <strong>Info</strong>.</p>
+    </div>
+  </div>
+
+  <!-- ─── HOW TO RUN ────────────────────────────────────────── -->
+  <div class="run-section">
+    <div class="run-title">How to Run</div>
+    <ul>
+      <li>Dev server: <code>node_modules/.bin/vite</code> → <code>http://localhost:5173</code></li>
+      <li>Production build: <code>node_modules/.bin/vite build</code> → <code>dist/</code></li>
+      <li>Deploy: <code>firebase deploy</code></li>
+    </ul>
+    <p>Google Drive credentials in <code>googleApi.js</code> confirmed working as of 2026-04-28.</p>
+  </div>
+
+</body>
+</html>
